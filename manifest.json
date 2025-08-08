@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
     "display_name": "Lovense Connect",
     "js": "script.js",
@@ -7,3 +8,14 @@
     "homePage": "https://github.com/Enclave0775/Lovense-Sillytavern-plugin"
 }
 
+=======
+{
+    "display_name": "Lovense Connect",
+    "js": "script.js",
+    "css": "style.css",
+    "author": "Enclave0775",
+    "version": "1.0.0",
+    "homePage": "https://github.com/Enclave0775/Lovense-Sillytavern-plugin"
+}
+
+>>>>>>> 1f946cfa8fb213d82267d5a5dd29c0ec7f78cd3e
