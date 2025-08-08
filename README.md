@@ -44,3 +44,5 @@ To set the vibration intensity to 80%, include the following in your message:
 ```
 
 The extension will automatically detect this command and set the device's vibration to 80%.
+
+world_info Folder have LoreBook Can use
