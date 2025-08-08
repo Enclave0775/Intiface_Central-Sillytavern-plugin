@@ -11,11 +11,9 @@ This is an extension for SillyTavern that allows you to connect and control Love
 
 ## Installation
 
-1.  Open SillyTavern
-2.  Click the "Extensions" button in the top bar
-3.  Click "Install extension"
-4.  Copy this URL into the input field: https://github.com/Enclave0775/Lovense-Sillytavern-plugin
-5.  Click "Install just for me" or "Install for all users"
+1.  Download and install [Intiface Desktop](https://intiface.com/).
+2.  Place the `lovense-sillytavern-plugin` folder into your SillyTavern's `public/scripts/extensions/third-party` directory.
+3.  Restart SillyTavern.
 
 ## How to Use
 
@@ -46,6 +44,3 @@ To set the vibration intensity to 80%, include the following in your message:
 ```
 
 The extension will automatically detect this command and set the device's vibration to 80%.
-
-world_info Folder have LoreBook Can use
-
