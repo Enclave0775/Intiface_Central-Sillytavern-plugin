@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Lovense Connect for SillyTavern
 
 This is an extension for SillyTavern that allows you to connect and control Lovense devices using [Intiface Desktop](https://intiface.com/).
