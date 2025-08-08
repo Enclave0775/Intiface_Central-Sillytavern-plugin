@@ -92,4 +92,3 @@ To set the vibration intensity to 80%, include the following in your message:
 ```
 
 The extension will automatically detect this command and set the device's vibration to 80%.
->>>>>>> 1f946cfa8fb213d82267d5a5dd29c0ec7f78cd3e
