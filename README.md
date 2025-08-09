@@ -6,7 +6,7 @@ This is an extension for SillyTavern that allows you to connect and control Love
 ## Features
 
 *   **Connect to Lovense Devices:** Easily connect to your Lovense toys via the Buttplug protocol, powered by Intiface.
-*   **Manual Control:** Simple sliders in the UI allow you to manually control the vibration intensity and linear position of your connected device.
+*   **Manual Control:** Simple sliders and input fields in the UI allow you to manually control the vibration intensity, linear position, and movement duration of your connected device.
 *   **Chat-Driven Control:** Automate the experience by sending commands directly through the SillyTavern chat. The extension listens for specific commands in the last message to adjust the device's functions.
 *   **Automatic Start:** The device will automatically start vibrating at 50% intensity upon successful connection.
 
@@ -27,9 +27,9 @@ This is an extension for SillyTavern that allows you to connect and control Love
     *   Click the **Connect** button. The status should change to "Connected".
 4.  **Scan for Devices:**
     *   Click the **Scan** button. Intiface will start scanning for Bluetooth devices.
-    *   Once a device is found, it will appear in the panel with "Vibrate" and "Linear" sliders.
+    *   Once a device is found, it will appear in the panel with "Vibrate" and "Linear" controls.
 5.  **Control Your Device:**
-    *   **Manual Control:** Drag the sliders to set the vibration and linear position manually.
+    *   **Manual Control:** Drag the sliders to set the vibration and linear position. You can also specify the duration in milliseconds for the linear movement in the provided input field.
     *   **Chat Control:** Send a message in the chat containing specific commands. The extension will parse the last message and adjust the device accordingly.
 
 ## Chat Command Formats
