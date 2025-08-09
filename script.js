@@ -91,13 +91,36 @@ function handleDeviceAdded(newDevice) {
     const deviceDiv = $(`<div id="device-${device.index}"></div>`);
     deviceDiv.html(`<h3>${device.name}</h3>`);
 
-    if (device.vibrate) {
-        const vibrateSlider = $('<input type="range" min="0" max="100" value="50" id="vibrate-slider">'); // Set initial value to 50 and add id
-        vibrateSlider.on("input", async () => {
+    // Vibrate slider
+    const vibrateSlider = $('<input type="range" min="0" max="100" value="50" id="vibrate-slider">');
+    vibrateSlider.on("input", async () => {
+        try {
             await device.vibrate(vibrateSlider.val() / 100);
-        });
-        deviceDiv.append("<span>Vibrate: </span>").append(vibrateSlider);
+        } catch (e) {
+            console.error("Vibrate command failed:", e);
+        }
+    });
+    deviceDiv.append("<span>Vibrate: </span>").append(vibrateSlider);
+    try {
         device.vibrate(0.5); // Vibrate at 50% intensity when connected
+    } catch (e) {
+        console.error("Initial vibrate command failed:", e);
+    }
+
+    // Linear slider
+    const linearSlider = $('<input type="range" min="0" max="100" value="50" id="linear-slider">');
+    linearSlider.on("input", async () => {
+        try {
+            await device.linear(500, linearSlider.val() / 100);
+        } catch (e) {
+            console.error("Linear command failed:", e);
+        }
+    });
+    deviceDiv.append("<span>Linear: </span>").append(linearSlider);
+    try {
+        device.linear(500, 0.5);
+    } catch (e) {
+        console.error("Initial linear command failed:", e);
     }
     
     devicesEl.append(deviceDiv);
@@ -119,15 +142,40 @@ async function processMessage() {
 
     const messageText = lastMessage.mes;
     const vibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
-    const match = messageText.match(vibrateRegex);
+    const vibrateMatch = messageText.match(vibrateRegex);
 
-    if (match && match[1]) {
-        const intensity = parseInt(match[1], 10);
+    if (vibrateMatch && vibrateMatch[1]) {
+        const intensity = parseInt(vibrateMatch[1], 10);
         if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
+            $("#vibrate-slider").val(intensity); // Update slider first
             const vibrateValue = intensity / 100;
-            await device.vibrate(vibrateValue);
-            $("#vibrate-slider").val(intensity);
-            updateStatus(`Vibrating at ${intensity}%`);
+            try {
+                await device.vibrate(vibrateValue);
+                updateStatus(`Vibrating at ${intensity}%`);
+            } catch (e) {
+                console.error("Vibrate command failed:", e);
+                updateStatus(`Vibrate command failed for ${device.name}`);
+            }
+        }
+    }
+
+    const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
+    const linearMatch = messageText.match(linearRegex);
+
+    if (linearMatch && linearMatch[1] && linearMatch[2]) {
+        const position = parseInt(linearMatch[1], 10);
+        const duration = parseInt(linearMatch[2], 10);
+
+        if (!isNaN(position) && position >= 0 && position <= 100 && !isNaN(duration) && duration >= 0) {
+            $("#linear-slider").val(position); // Update slider first
+            const linearValue = position / 100;
+            try {
+                await device.linear(duration, linearValue);
+                updateStatus(`Moving to position ${position}% over ${duration}ms`);
+            } catch (e) {
+                console.error("Linear command failed:", e);
+                updateStatus(`Linear command failed for ${device.name}`);
+            }
         }
     }
 }
