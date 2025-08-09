@@ -109,16 +109,20 @@ function handleDeviceAdded(newDevice) {
 
     // Linear slider
     const linearSlider = $('<input type="range" min="0" max="100" value="50" id="linear-slider">');
+    const durationInput = $('<input type="number" id="duration-input" value="500" style="width: 60px; margin-left: 5px;">');
     linearSlider.on("input", async () => {
         try {
-            await device.linear(500, linearSlider.val() / 100);
+            const duration = parseInt(durationInput.val(), 10) || 500;
+            await device.linear(duration, linearSlider.val() / 100);
         } catch (e) {
             console.error("Linear command failed:", e);
         }
     });
     deviceDiv.append("<span>Linear: </span>").append(linearSlider);
+    deviceDiv.append("<span>Duration (ms): </span>").append(durationInput);
     try {
-        device.linear(500, 0.5);
+        const duration = parseInt(durationInput.val(), 10) || 500;
+        device.linear(duration, 0.5);
     } catch (e) {
         console.error("Initial linear command failed:", e);
     }
@@ -168,6 +172,7 @@ async function processMessage() {
 
         if (!isNaN(position) && position >= 0 && position <= 100 && !isNaN(duration) && duration >= 0) {
             $("#linear-slider").val(position); // Update slider first
+            $("#duration-input").val(duration); // Update duration input
             const linearValue = position / 100;
             try {
                 await device.linear(duration, linearValue);
