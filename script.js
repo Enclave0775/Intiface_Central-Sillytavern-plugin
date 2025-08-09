@@ -15,7 +15,6 @@ let client;
 let connector;
 let device;
 let intervalId;
-let isProcessingCommand = false;
 
 function clickHandlerHack() {
     try {
@@ -108,25 +107,40 @@ function handleDeviceAdded(newDevice) {
         console.error("Initial vibrate command failed:", e);
     }
 
-    // Linear slider
-    const linearSlider = $('<input type="range" min="0" max="100" value="50" id="linear-slider">');
-    const durationInput = $('<input type="number" id="duration-input" value="500" style="width: 60px; margin-left: 5px;">');
-    linearSlider.on("input", async () => {
-        try {
-            const duration = parseInt(durationInput.val(), 10) || 500;
-            await device.linear(linearSlider.val() / 100, duration);
-        } catch (e) {
-            console.error("Linear command failed:", e);
+    // Stroker controls
+    const startPosSlider = $('<input type="range" min="0" max="100" value="10" id="start-pos-slider">');
+    const endPosSlider = $('<input type="range" min="0" max="100" value="90" id="end-pos-slider">');
+    const durationInput = $('<input type="number" id="duration-input" value="1000" style="width: 60px;">');
+    const startStrokerBtn = $('<div class="menu_button">Start Stroking</div>');
+    const stopStrokerBtn = $('<div class="menu_button">Stop Stroking</div>');
+
+    deviceDiv.append("<div><span>Start Pos: </span></div>").append(startPosSlider);
+    deviceDiv.append("<div><span>End Pos: </span></div>").append(endPosSlider);
+    deviceDiv.append("<div><span>Duration (ms): </span></div>").append(durationInput);
+    deviceDiv.append(startStrokerBtn).append(stopStrokerBtn);
+
+    let isAtStart = true;
+
+    startStrokerBtn.on("click", () => {
+        if (strokerIntervalId) clearInterval(strokerIntervalId);
+        const duration = parseInt(durationInput.val(), 10) || 1000;
+        strokerIntervalId = setInterval(async () => {
+            const targetPos = isAtStart ? endPosSlider.val() / 100 : startPosSlider.val() / 100;
+            try {
+                await device.linear(targetPos, duration);
+                isAtStart = !isAtStart;
+            } catch (e) {
+                console.error("Stroker command failed:", e);
+            }
+        }, duration);
+    });
+
+    stopStrokerBtn.on("click", () => {
+        if (strokerIntervalId) {
+            clearInterval(strokerIntervalId);
+            strokerIntervalId = null;
         }
     });
-    deviceDiv.append("<span>Linear: </span>").append(linearSlider);
-    deviceDiv.append("<span>Duration (ms): </span>").append(durationInput);
-    try {
-        const duration = parseInt(durationInput.val(), 10) || 500;
-        device.linear(0.5, duration);
-    } catch (e) {
-        console.error("Initial linear command failed:", e);
-    }
     
     devicesEl.append(deviceDiv);
 }
@@ -137,8 +151,10 @@ function handleDeviceRemoved() {
     $("#lovense-devices").empty();
 }
 
+let strokerIntervalId = null;
+
 async function processMessage() {
-    if (!device || isProcessingCommand) return;
+    if (!device) return;
 
     const context = getContext();
     const lastMessage = context.chat[context.chat.length - 1];
@@ -164,40 +180,35 @@ async function processMessage() {
         }
     }
 
-    const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
+    const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
     const linearMatch = messageText.match(linearRegex);
 
-    if (linearMatch && linearMatch[1] && linearMatch[2]) {
-        const position = parseInt(linearMatch[1], 10);
-        const duration = parseInt(linearMatch[2], 10);
+    if (linearMatch && linearMatch.length === 4) {
+        const startPos = parseInt(linearMatch[1], 10);
+        const endPos = parseInt(linearMatch[2], 10);
+        const duration = parseInt(linearMatch[3], 10);
 
-        if (!isNaN(position) && position >= 0 && position <= 100 && !isNaN(duration) && duration >= 0) {
-            $("#linear-slider").val(position); // Update slider first
-            $("#duration-input").val(duration); // Update duration input
-            const linearValue = position / 100;
-            try {
-                isProcessingCommand = true; // Set lock
-                await device.linear(linearValue, duration);
-                updateStatus(`Moving to position ${position}% over ${duration}ms`);
+        if (!isNaN(startPos) && !isNaN(endPos) && !isNaN(duration)) {
+            $("#start-pos-slider").val(startPos);
+            $("#end-pos-slider").val(endPos);
+            $("#duration-input").val(duration);
 
-                // Set a timeout to return to 0 and release lock
-                setTimeout(async () => {
-                    try {
-                        await device.linear(0, duration);
-                        $("#linear-slider").val(0);
-                        updateStatus(`Returning to position 0%`);
-                    } catch (e) {
-                        console.error("Return to zero command failed:", e);
-                    } finally {
-                        isProcessingCommand = false; // Release lock
-                    }
-                }, duration + 100); // Return after movement completes + buffer
+            if (strokerIntervalId) clearInterval(strokerIntervalId);
+            
+            let isAtStart = true;
+            // Initial move
+            device.linear(isAtStart ? endPos / 100 : startPos / 100, duration).catch(e => console.error(e));
+            isAtStart = !isAtStart;
 
-            } catch (e) {
-                isProcessingCommand = false; // Release lock on error
-                console.error("Linear command failed:", e);
-                updateStatus(`Linear command failed for ${device.name}`);
-            }
+            strokerIntervalId = setInterval(async () => {
+                const targetPos = isAtStart ? endPos / 100 : startPos / 100;
+                try {
+                    await device.linear(targetPos, duration);
+                    isAtStart = !isAtStart;
+                } catch (e) {
+                    console.error("Stroker command failed:", e);
+                }
+            }, duration);
         }
     }
 }
