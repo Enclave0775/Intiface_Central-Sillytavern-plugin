@@ -177,6 +177,18 @@ async function processMessage() {
             try {
                 await device.linear(linearValue, duration);
                 updateStatus(`Moving to position ${position}% over ${duration}ms`);
+
+                // Set a timeout to return to 0
+                setTimeout(async () => {
+                    try {
+                        await device.linear(0, duration);
+                        $("#linear-slider").val(0);
+                        updateStatus(`Returning to position 0%`);
+                    } catch (e) {
+                        console.error("Return to zero command failed:", e);
+                    }
+                }, duration + 100); // Return after movement completes + buffer
+
             } catch (e) {
                 console.error("Linear command failed:", e);
                 updateStatus(`Linear command failed for ${device.name}`);
