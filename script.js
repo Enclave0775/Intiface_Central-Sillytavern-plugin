@@ -113,7 +113,7 @@ function handleDeviceAdded(newDevice) {
     linearSlider.on("input", async () => {
         try {
             const duration = parseInt(durationInput.val(), 10) || 500;
-            await device.linear(duration, linearSlider.val() / 100);
+            await device.linear(linearSlider.val() / 100, duration);
         } catch (e) {
             console.error("Linear command failed:", e);
         }
@@ -122,7 +122,7 @@ function handleDeviceAdded(newDevice) {
     deviceDiv.append("<span>Duration (ms): </span>").append(durationInput);
     try {
         const duration = parseInt(durationInput.val(), 10) || 500;
-        device.linear(duration, 0.5);
+        device.linear(0.5, duration);
     } catch (e) {
         console.error("Initial linear command failed:", e);
     }
@@ -175,7 +175,7 @@ async function processMessage() {
             $("#duration-input").val(duration); // Update duration input
             const linearValue = position / 100;
             try {
-                await device.linear(duration, linearValue);
+                await device.linear(linearValue, duration);
                 updateStatus(`Moving to position ${position}% over ${duration}ms`);
             } catch (e) {
                 console.error("Linear command failed:", e);
