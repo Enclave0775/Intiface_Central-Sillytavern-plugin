@@ -57,3 +57,5 @@ To move the device to the 60% position over 1.5 seconds (1500ms), include the fo
 `"LINEAR": {"position": 60, "duration": 1500}`
 
 The extension will automatically detect these commands and control the device accordingly.
+
+**Note:** After a `LINEAR` command is executed, the device will automatically return to position 0 after the specified duration, creating a "thrust" or "pump" effect.
