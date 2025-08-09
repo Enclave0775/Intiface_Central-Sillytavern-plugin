@@ -15,6 +15,7 @@ let client;
 let connector;
 let device;
 let intervalId;
+let isProcessingCommand = false;
 
 function clickHandlerHack() {
     try {
@@ -137,7 +138,7 @@ function handleDeviceRemoved() {
 }
 
 async function processMessage() {
-    if (!device) return;
+    if (!device || isProcessingCommand) return;
 
     const context = getContext();
     const lastMessage = context.chat[context.chat.length - 1];
@@ -175,10 +176,11 @@ async function processMessage() {
             $("#duration-input").val(duration); // Update duration input
             const linearValue = position / 100;
             try {
+                isProcessingCommand = true; // Set lock
                 await device.linear(linearValue, duration);
                 updateStatus(`Moving to position ${position}% over ${duration}ms`);
 
-                // Set a timeout to return to 0
+                // Set a timeout to return to 0 and release lock
                 setTimeout(async () => {
                     try {
                         await device.linear(0, duration);
@@ -186,10 +188,13 @@ async function processMessage() {
                         updateStatus(`Returning to position 0%`);
                     } catch (e) {
                         console.error("Return to zero command failed:", e);
+                    } finally {
+                        isProcessingCommand = false; // Release lock
                     }
                 }, duration + 100); // Return after movement completes + buffer
 
             } catch (e) {
+                isProcessingCommand = false; // Release lock on error
                 console.error("Linear command failed:", e);
                 updateStatus(`Linear command failed for ${device.name}`);
             }
