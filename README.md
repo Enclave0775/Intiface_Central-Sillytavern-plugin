@@ -54,7 +54,7 @@ To control linear movement, your message must contain a `"LINEAR"` key with an o
 **Example:**
 
 To move the device to the 60% position over 1.5 seconds (1500ms), include the following in your message:
-`"LINEAR": {"position": 60, "duration": 1500}`
+`"LINEAR": {"start_position":  10, "end_position": 90, "duration": 2000};`
 
 The extension will automatically detect these commands and control the device accordingly.
 
