@@ -69,6 +69,15 @@ async function disconnect() {
             clearInterval(intervalId); // Stop processing messages
             intervalId = null;
         }
+        if (strokerIntervalId) {
+            clearInterval(strokerIntervalId);
+            strokerIntervalId = null;
+        }
+        isStroking = false;
+        if (vibrateIntervalId) {
+            clearInterval(vibrateIntervalId);
+            vibrateIntervalId = null;
+        }
     } catch (e) {
         updateStatus(`Error disconnecting: ${e.message}`, true);
     }
@@ -149,9 +158,21 @@ function handleDeviceRemoved() {
     updateStatus("Device removed");
     device = null;
     $("#lovense-devices").empty();
+    if (strokerIntervalId) {
+        clearInterval(strokerIntervalId);
+        strokerIntervalId = null;
+    }
+    isStroking = false;
+    if (vibrateIntervalId) {
+        clearInterval(vibrateIntervalId);
+        vibrateIntervalId = null;
+    }
 }
 
 let strokerIntervalId = null;
+let vibrateIntervalId = null;
+let lastProcessedMessage = null;
+let isStroking = false; // To control the async stroking loop
 
 async function processMessage() {
     if (!device) return;
@@ -159,16 +180,76 @@ async function processMessage() {
     const context = getContext();
     const lastMessage = context.chat[context.chat.length - 1];
 
-    if (!lastMessage || !lastMessage.mes) return;
+    if (!lastMessage || !lastMessage.mes || lastMessage.mes === lastProcessedMessage) {
+        return; // No new message or message already processed
+    }
 
     const messageText = lastMessage.mes;
-    const vibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
-    const vibrateMatch = messageText.match(vibrateRegex);
 
-    if (vibrateMatch && vibrateMatch[1]) {
-        const intensity = parseInt(vibrateMatch[1], 10);
+    // Regex definitions
+    const multiVibrateRegex = /"VIBRATE"\s*:\s*({[^}]+})/i;
+    const singleVibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
+    const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
+    const linearSpeedRegex = /"LINEAR_SPEED"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?start_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?steps(?:")?\s*:\s*(\d+)\s*}/i;
+
+    const multiVibrateMatch = messageText.match(multiVibrateRegex);
+    const singleVibrateMatch = messageText.match(singleVibrateRegex);
+    const linearMatch = messageText.match(linearRegex);
+    const linearSpeedMatch = messageText.match(linearSpeedRegex);
+
+    // If any command is found, stop previous actions and mark the message as processed.
+    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch) {
+        lastProcessedMessage = messageText;
+    } else {
+        return; // Not a command message, do nothing.
+    }
+
+    const stopActions = () => {
+        if (vibrateIntervalId) {
+            clearInterval(vibrateIntervalId);
+            vibrateIntervalId = null;
+        }
+        if (strokerIntervalId) {
+            clearInterval(strokerIntervalId);
+            strokerIntervalId = null;
+        }
+        isStroking = false;
+    };
+
+    stopActions();
+
+    if (multiVibrateMatch && multiVibrateMatch[1]) {
+        try {
+            const command = JSON.parse(multiVibrateMatch[1]);
+            if (command.pattern && Array.isArray(command.pattern) && command.interval) {
+                const pattern = command.pattern;
+                const interval = command.interval;
+                let patternIndex = 0;
+
+                const executeVibration = async () => {
+                    if (patternIndex >= pattern.length) {
+                        patternIndex = 0; // Loop the pattern
+                    }
+                    const intensity = pattern[patternIndex];
+                    if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
+                        $("#vibrate-slider").val(intensity);
+                        const vibrateValue = intensity / 100;
+                        await device.vibrate(vibrateValue);
+                        updateStatus(`Vibrating at ${intensity}% (Pattern)`);
+                    }
+                    patternIndex++;
+                };
+                
+                executeVibration(); // Vibrate immediately with the first value
+                vibrateIntervalId = setInterval(executeVibration, interval);
+            }
+        } catch (e) {
+            console.error("Could not parse multi-level VIBRATE command.", e);
+        }
+    } else if (singleVibrateMatch && singleVibrateMatch[1]) {
+        const intensity = parseInt(singleVibrateMatch[1], 10);
         if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-            $("#vibrate-slider").val(intensity); // Update slider first
+            $("#vibrate-slider").val(intensity);
             const vibrateValue = intensity / 100;
             try {
                 await device.vibrate(vibrateValue);
@@ -178,12 +259,7 @@ async function processMessage() {
                 updateStatus(`Vibrate command failed for ${device.name}`);
             }
         }
-    }
-
-    const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
-    const linearMatch = messageText.match(linearRegex);
-
-    if (linearMatch && linearMatch.length === 4) {
+    } else if (linearMatch && linearMatch.length === 4) {
         const startPos = parseInt(linearMatch[1], 10);
         const endPos = parseInt(linearMatch[2], 10);
         const duration = parseInt(linearMatch[3], 10);
@@ -192,8 +268,6 @@ async function processMessage() {
             $("#start-pos-slider").val(startPos);
             $("#end-pos-slider").val(endPos);
             $("#duration-input").val(duration);
-
-            if (strokerIntervalId) clearInterval(strokerIntervalId);
             
             let isAtStart = true;
             // Initial move
@@ -209,6 +283,51 @@ async function processMessage() {
                     console.error("Stroker command failed:", e);
                 }
             }, duration);
+        }
+    } else if (linearSpeedMatch && linearSpeedMatch.length === 6) {
+        const startPos = parseInt(linearSpeedMatch[1], 10);
+        const endPos = parseInt(linearSpeedMatch[2], 10);
+        const startDur = parseInt(linearSpeedMatch[3], 10);
+        const endDur = parseInt(linearSpeedMatch[4], 10);
+        const steps = parseInt(linearSpeedMatch[5], 10);
+
+        if (!isNaN(startPos) && !isNaN(endPos) && !isNaN(startDur) && !isNaN(endDur) && !isNaN(steps) && steps > 1) {
+            $("#start-pos-slider").val(startPos);
+            $("#end-pos-slider").val(endPos);
+            
+            let isAtStart = true;
+            let currentStep = 0;
+            isStroking = true;
+
+            const strokerLoop = async () => {
+                while (isStroking) {
+                    const progress = currentStep / (steps - 1);
+                    const duration = Math.round(startDur + (endDur - startDur) * progress);
+
+                    $("#duration-input").val(duration);
+                    updateStatus(`Stroking. Duration: ${duration}ms`);
+
+                    const targetPos = isAtStart ? endPos / 100 : startPos / 100;
+
+                    try {
+                        if (!isStroking) break;
+                        await device.linear(targetPos, duration);
+                        // Wait for the movement to complete
+                        await new Promise(resolve => setTimeout(resolve, duration));
+
+                        isAtStart = !isAtStart;
+                        currentStep++;
+                        if (currentStep >= steps) {
+                            currentStep = 0; // Loop the pattern
+                        }
+                    } catch (e) {
+                        console.error("Stroker command failed:", e);
+                        isStroking = false; // Stop on error
+                    }
+                }
+            };
+            
+            strokerLoop();
         }
     }
 }
