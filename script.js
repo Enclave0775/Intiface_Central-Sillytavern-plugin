@@ -125,12 +125,10 @@ function handleDeviceAdded(newDevice) {
     // Oscillate slider
     const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">');
     oscillateSlider.on("input", async () => {
-        if (device.allowedMessages && device.allowedMessages.Rotate) {
-            try {
-                await device.rotate(oscillateSlider.val() / 100);
-            } catch (e) {
-                console.error("Oscillate command failed:", e);
-            }
+        try {
+            await device.oscillate(oscillateSlider.val() / 100);
+        } catch (e) {
+            // Don't worry about it, some devices don't support this.
         }
     });
     deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider);
@@ -390,7 +388,11 @@ async function processMessage() {
                     if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
                         $("#oscillate-slider").val(intensity);
                         const oscillateValue = intensity / 100;
-                        await device.rotate(oscillateValue);
+                        try {
+                            await device.oscillate(oscillateValue);
+                        } catch (e) {
+                            // Don't worry about it, some devices don't support this.
+                        }
                         updateStatus(`Oscillating at ${intensity}% (Pattern)`);
                     }
 
@@ -415,11 +417,10 @@ async function processMessage() {
             $("#oscillate-slider").val(intensity);
             const oscillateValue = intensity / 100;
             try {
-                await device.rotate(oscillateValue);
+                await device.oscillate(oscillateValue);
                 updateStatus(`Oscillating at ${intensity}%`);
             } catch (e) {
-                console.error("Oscillate command failed:", e);
-                updateStatus(`Oscillate command failed for ${device.name}`);
+                // Don't worry about it, some devices don't support this.
             }
         }
     }
