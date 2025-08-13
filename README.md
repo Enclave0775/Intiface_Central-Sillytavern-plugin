@@ -1,11 +1,11 @@
 
-# Lovense Connect for SillyTavern
+# Intiface Central for SillyTavern
 
 This is an extension for SillyTavern that allows you to connect and control Lovense devices using [Intiface Desktop](https://intiface.com/).
 
 ## Features
 
-*   **Connect to Lovense Devices:** Easily connect to your Lovense toys via the Buttplug protocol, powered by Intiface.
+*   **Connect to Intiface Central:** Easily connect to your toys via the Buttplug protocol, powered by Intiface.
 *   **Manual Control:** Simple sliders and input fields in the UI allow you to manually control the vibration intensity, linear position, and movement duration of your connected device.
 *   **Chat-Driven Control:** Automate the experience by sending commands directly through the SillyTavern chat. The extension listens for specific commands in the last message to adjust the device's functions.
 *   **Automatic Start:** The device will automatically start vibrating at 50% intensity upon successful connection.
