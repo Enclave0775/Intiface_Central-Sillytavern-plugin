@@ -1,7 +1,7 @@
 
 # Intiface Central for SillyTavern
 
-This is an extension for SillyTavern that allows you to connect and control Lovense devices using [Intiface Desktop](https://intiface.com/).
+This is an extension for SillyTavern that allows you to connect and control Intiface_Central devices using [Intiface Desktop](https://intiface.com/).
 
 ## Features
 
@@ -15,7 +15,7 @@ This is an extension for SillyTavern that allows you to connect and control Love
 1.  Open SillyTavern.
 2.  Click the "Extensions" button in the top toolbar.
 3.  Click "Install Extension".
-4.  Copy this URL into the input field: https://github.com/Enclave0775/Lovense-Sillytavern-plugin
+4.  Copy this URL into the input field: https://github.com/Enclave0775/Intiface_Central-Sillytavern-plugin
 5.  Click "Install just for me" or "Install for all users".
 
 ## How to Use
@@ -23,7 +23,7 @@ This is an extension for SillyTavern that allows you to connect and control Love
 1.  **Start Intiface Desktop:** Launch Intiface and start the server. This will open a WebSocket server at `ws://127.0.0.1:12345`, which the extension needs to connect to.
 2.  **Open SillyTavern:** Navigate to your SillyTavern instance.
 3.  **Connect the Extension:**
-    *   You will see a new Lovense icon in the top-right menu. Click it to open the control panel.
+    *   You will see a new electrocardiogram icon in the top-right menu. Click it to open the control panel.
     *   Click the **Connect** button. The status should change to "Connected".
 4.  **Scan for Devices:**
     *   Click the **Scan** button. Intiface will start scanning for Bluetooth devices.
