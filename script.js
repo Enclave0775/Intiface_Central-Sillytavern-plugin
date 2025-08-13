@@ -123,7 +123,7 @@ function handleDeviceAdded(newDevice) {
     }
 
     // Oscillate slider
-    if (device.allowedMessages.Rotate) {
+    if (device.allowedMessages && device.allowedMessages.Rotate) {
         const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">');
         oscillateSlider.on("input", async () => {
             try {
