@@ -7,8 +7,8 @@ import { renderExtensionTemplateAsync } from "../../../extensions.js";
 const $ = window.$;
 // @ts-ignore
 const { getContext } = window.SillyTavern;
-const NAME = "lovense-connect";
-const extensionName = "lovense-sillytavern-plugin";
+const NAME = "intiface-connect";
+const extensionName = "Intiface_Central-Sillytavern-plugin";
 
 let buttplug;
 let client;
@@ -23,7 +23,7 @@ function clickHandlerHack() {
             const events = $._data(element, "events");
             if (events && events.click && events.click[0]) {
                 const doNavbarIconClick = events.click[0].handler;
-                $("#lovense-connect-button .drawer-toggle").on("click", doNavbarIconClick);
+                $("#intiface-connect-button .drawer-toggle").on("click", doNavbarIconClick);
             }
         }
     } catch (error) {
@@ -32,7 +32,7 @@ function clickHandlerHack() {
 }
 
 function updateStatus(status, isError = false) {
-    const statusPanel = $("#lovense-status-panel");
+    const statusPanel = $("#intiface-status-panel");
     statusPanel.text(`Status: ${status}`);
     if (isError) {
         statusPanel.removeClass("connected").addClass("disconnected");
@@ -40,9 +40,9 @@ function updateStatus(status, isError = false) {
 }
 
 function updateButtonStates(isConnected) {
-    $("#lovense-connect-action-button").text(isConnected ? "Disconnect" : "Connect");
-    $("#lovense-scan-button").toggle(isConnected);
-    $("#lovense-connect-button .drawer-icon").toggleClass("flashing-icon", isConnected);
+    $("#intiface-connect-action-button").text(isConnected ? "Disconnect" : "Connect");
+    $("#intiface-scan-button").toggle(isConnected);
+    $("#intiface-connect-button .drawer-icon").toggleClass("flashing-icon", isConnected);
 }
 
 async function connect() {
@@ -50,7 +50,7 @@ async function connect() {
         updateStatus("Connecting...");
         await client.connect(connector);
         updateStatus("Connected");
-        $("#lovense-status-panel").removeClass("disconnected").addClass("connected");
+        $("#intiface-status-panel").removeClass("disconnected").addClass("connected");
         updateButtonStates(true);
         intervalId = setInterval(processMessage, 1000); // Start processing messages
     } catch (e) {
@@ -62,9 +62,9 @@ async function disconnect() {
     try {
         await client.disconnect();
         updateStatus("Disconnected");
-        $("#lovense-status-panel").removeClass("connected").addClass("disconnected");
+        $("#intiface-status-panel").removeClass("connected").addClass("disconnected");
         updateButtonStates(false);
-        $("#lovense-devices").empty();
+        $("#intiface-devices").empty();
         if (intervalId) {
             clearInterval(intervalId); // Stop processing messages
             intervalId = null;
@@ -99,7 +99,7 @@ async function startScanning() {
 function handleDeviceAdded(newDevice) {
     updateStatus("Device found!");
     device = newDevice; // Store the device
-    const devicesEl = $("#lovense-devices");
+    const devicesEl = $("#intiface-devices");
     devicesEl.empty(); // Clear previous devices
     const deviceDiv = $(`<div id="device-${device.index}"></div>`);
     deviceDiv.html(`<h3>${device.name}</h3>`);
@@ -114,7 +114,7 @@ function handleDeviceAdded(newDevice) {
         }
     });
     deviceDiv.append("<span>Vibrate: </span>").append(vibrateSlider);
-    const intervalDisplay = $('<div id="lovense-interval-display" style="margin-top: 10px;">Interval: N/A</div>');
+    const intervalDisplay = $('<div id="intiface-interval-display" style="margin-top: 10px;">Interval: N/A</div>');
     deviceDiv.append(intervalDisplay);
     try {
         device.vibrate(0.5); // Vibrate at 50% intensity when connected
@@ -133,7 +133,7 @@ function handleDeviceAdded(newDevice) {
             }
         });
         deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider);
-        const oscillateIntervalDisplay = $('<div id="lovense-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
+        const oscillateIntervalDisplay = $('<div id="intiface-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
         deviceDiv.append(oscillateIntervalDisplay);
     }
 
@@ -178,7 +178,7 @@ function handleDeviceAdded(newDevice) {
 function handleDeviceRemoved() {
     updateStatus("Device removed");
     device = null;
-    $("#lovense-devices").empty();
+    $("#intiface-devices").empty();
     if (strokerIntervalId) {
         clearInterval(strokerIntervalId);
         strokerIntervalId = null;
@@ -238,12 +238,12 @@ async function processMessage() {
         if (vibrateIntervalId) {
             clearTimeout(vibrateIntervalId);
             vibrateIntervalId = null;
-            $("#lovense-interval-display").text("Interval: N/A");
+            $("#intiface-interval-display").text("Interval: N/A");
         }
         if (oscillateIntervalId) {
             clearTimeout(oscillateIntervalId);
             oscillateIntervalId = null;
-            $("#lovense-oscillate-interval-display").text("Oscillate Interval: N/A");
+            $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A");
         }
         if (strokerIntervalId) {
             clearInterval(strokerIntervalId);
@@ -276,7 +276,7 @@ async function processMessage() {
                     }
 
                     const currentInterval = intervals[patternIndex % intervals.length];
-                    $("#lovense-interval-display").text(`Interval: ${currentInterval}ms`);
+                    $("#intiface-interval-display").text(`Interval: ${currentInterval}ms`);
                     patternIndex++;
 
                     if (vibrateIntervalId) {
@@ -395,7 +395,7 @@ async function processMessage() {
                     }
 
                     const currentInterval = intervals[patternIndex % intervals.length];
-                    $("#lovense-oscillate-interval-display").text(`Oscillate Interval: ${currentInterval}ms`);
+                    $("#intiface-oscillate-interval-display").text(`Oscillate Interval: ${currentInterval}ms`);
                     patternIndex++;
 
                     if (oscillateIntervalId) {
@@ -449,7 +449,7 @@ $(async () => {
         await loadScript(`/scripts/extensions/third-party/${extensionName}/lib/buttplug.js`);
         // @ts-ignore
         buttplug = window.buttplug;
-        client = new buttplug.ButtplugClient("SillyTavern Lovense Client");
+        client = new buttplug.ButtplugClient("SillyTavern Intiface Client");
         connector = new buttplug.ButtplugBrowserWebsocketClientConnector("ws://127.0.0.1:12345");
 
         client.on("deviceadded", handleDeviceAdded);
@@ -460,15 +460,15 @@ $(async () => {
         
         clickHandlerHack();
 
-        $("#lovense-connect-action-button").on("click", toggleConnection);
-        $("#lovense-scan-button").on("click", startScanning);
+        $("#intiface-connect-action-button").on("click", toggleConnection);
+        $("#intiface-scan-button").on("click", startScanning);
 
         updateButtonStates(client.connected);
         updateStatus("Disconnected");
 
     } catch (error) {
         console.error(`${NAME}: Failed to initialize.`, error);
-        const statusPanel = $("#lovense-status-panel");
+        const statusPanel = $("#intiface-status-panel");
         if (statusPanel.length) {
             updateStatus("Failed to load Buttplug.js. Check console.", true);
         }
