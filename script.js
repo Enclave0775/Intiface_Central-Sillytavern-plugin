@@ -123,19 +123,19 @@ function handleDeviceAdded(newDevice) {
     }
 
     // Oscillate slider
-    if (device.allowedMessages && device.allowedMessages.Rotate) {
-        const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">');
-        oscillateSlider.on("input", async () => {
+    const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">');
+    oscillateSlider.on("input", async () => {
+        if (device.allowedMessages && device.allowedMessages.Rotate) {
             try {
                 await device.rotate(oscillateSlider.val() / 100);
             } catch (e) {
                 console.error("Oscillate command failed:", e);
             }
-        });
-        deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider);
-        const oscillateIntervalDisplay = $('<div id="intiface-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
-        deviceDiv.append(oscillateIntervalDisplay);
-    }
+        }
+    });
+    deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider);
+    const oscillateIntervalDisplay = $('<div id="intiface-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
+    deviceDiv.append(oscillateIntervalDisplay);
 
     // Stroker controls
     const startPosSlider = $('<input type="range" min="0" max="100" value="10" id="start-pos-slider">');
