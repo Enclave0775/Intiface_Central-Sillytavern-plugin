@@ -1,4 +1,3 @@
-
 # Intiface Central for SillyTavern
 
 This is an extension for SillyTavern that allows you to connect and control Intiface_Central devices using [Intiface Desktop](https://intiface.com/).
@@ -6,7 +5,7 @@ This is an extension for SillyTavern that allows you to connect and control Inti
 ## Features
 
 *   **Connect to Intiface Central:** Easily connect to your toys via the Buttplug protocol, powered by Intiface.
-*   **Manual Control:** Simple sliders and input fields in the UI allow you to manually control the vibration intensity, linear position, and movement duration of your connected device.
+*   **Manual Control:** Simple sliders and input fields in the UI allow you to manually control the vibration intensity, oscillation, linear position, and movement duration of your connected device.
 *   **Chat-Driven Control:** Automate the experience by sending commands directly through the SillyTavern chat. The extension listens for specific commands in the last message to adjust the device's functions.
 *   **Automatic Start:** The device will automatically start vibrating at 50% intensity upon successful connection.
 
@@ -27,35 +26,55 @@ This is an extension for SillyTavern that allows you to connect and control Inti
     *   Click the **Connect** button. The status should change to "Connected".
 4.  **Scan for Devices:**
     *   Click the **Scan** button. Intiface will start scanning for Bluetooth devices.
-    *   Once a device is found, it will appear in the panel with "Vibrate" and "Linear" controls.
+    *   Once a device is found, it will appear in the panel with "Vibrate", "Oscillate", and "Linear" controls.
 5.  **Control Your Device:**
-    *   **Manual Control:** Drag the sliders to set the vibration and linear position. You can also specify the duration in milliseconds for the linear movement in the provided input field.
+    *   **Manual Control:** Drag the sliders to set the vibration, oscillation, and linear position. You can also specify the duration in milliseconds for the linear movement in the provided input field.
     *   **Chat Control:** Send a message in the chat containing specific commands. The extension will parse the last message and adjust the device accordingly.
 
 ## Chat Command Formats
 
-The extension supports two primary commands: `VIBRATE` and `LINEAR`.
+The extension supports three primary commands: `VIBRATE`, `OSCILLATE`, and `LINEAR`.
 
 ### Vibrate Command
 
-To control the vibration, your message must contain a `"VIBRATE"` key. The value should be a number between 0 and 100.
+To control the vibration, your message must contain a `"VIBRATE"` key. The value can be a number between 0 and 100, or an object for pattern-based vibration.
 
-**Example:**
+**Example (Single Value):**
 
 To set the vibration intensity to 80%, include the following in your message:
 `"VIBRATE": 80`
 
+**Example (Pattern):**
+
+To create a vibration pattern, provide an object with a `pattern` array and an `interval` (or array of intervals).
+`"VIBRATE": {"pattern": [20, 40, 20, 40, 30, 100], "interval": [1000, 3000]}`
+
+### Oscillate Command
+
+To control the oscillation, your message must contain an `"OSCILLATE"` key. The value can be a number between 0 and 100, or an object for pattern-based oscillation.
+
+**Example (Single Value):**
+
+To set the oscillation intensity to 80%, include the following in your message:
+`"OSCILLATE": 80`
+
+**Example (Pattern):**
+
+To create an oscillation pattern, provide an object with a `pattern` array and an `interval` (or array of intervals).
+`"OSCILLATE": {"pattern": [20, 40, 20, 40, 30, 100], "interval": [2000, 3000]}`
+
+**Note:** The extension will attempt to send the `OSCILLATE` command even if the connected device does not explicitly support it.
+
 ### Linear Command
 
-To control linear movement, your message must contain a `"LINEAR"` key with an object containing `position` and `duration`.
-*   `position`: A number between 0 and 100 representing the target position.
+To control linear movement, your message must contain a `"LINEAR"` key with an object containing `start_position`, `end_position`, and `duration`.
+*   `start_position`: A number between 0 and 100 representing the starting position.
+*   `end_position`: A number between 0 and 100 representing the target position.
 *   `duration`: A number representing the time in milliseconds to take to reach the position.
 
 **Example:**
 
-To move the device to the 60% position over 1.5 seconds (1500ms), include the following in your message:
-`"LINEAR": {"start_position":  10, "end_position": 90, "duration": 2000};`
+To move the device from 10% to 90% position over 2 seconds (2000ms), include the following in your message:
+`"LINEAR": {"start_position": 10, "end_position": 90, "duration": 2000}`
 
 The extension will automatically detect these commands and control the device accordingly.
-
-**Note:** After a `LINEAR` command is executed, the device will automatically return to position 0 after the specified duration, creating a "thrust" or "pump" effect.
