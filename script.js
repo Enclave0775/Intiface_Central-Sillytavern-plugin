@@ -75,7 +75,7 @@ async function disconnect() {
         }
         isStroking = false;
         if (vibrateIntervalId) {
-            clearInterval(vibrateIntervalId);
+            clearTimeout(vibrateIntervalId);
             vibrateIntervalId = null;
         }
     } catch (e) {
@@ -110,6 +110,8 @@ function handleDeviceAdded(newDevice) {
         }
     });
     deviceDiv.append("<span>Vibrate: </span>").append(vibrateSlider);
+    const intervalDisplay = $('<div id="lovense-interval-display" style="margin-top: 10px;">Interval: N/A</div>');
+    deviceDiv.append(intervalDisplay);
     try {
         device.vibrate(0.5); // Vibrate at 50% intensity when connected
     } catch (e) {
@@ -164,7 +166,7 @@ function handleDeviceRemoved() {
     }
     isStroking = false;
     if (vibrateIntervalId) {
-        clearInterval(vibrateIntervalId);
+        clearTimeout(vibrateIntervalId);
         vibrateIntervalId = null;
     }
 }
@@ -206,8 +208,9 @@ async function processMessage() {
 
     const stopActions = () => {
         if (vibrateIntervalId) {
-            clearInterval(vibrateIntervalId);
+            clearTimeout(vibrateIntervalId);
             vibrateIntervalId = null;
+            $("#lovense-interval-display").text("Interval: N/A");
         }
         if (strokerIntervalId) {
             clearInterval(strokerIntervalId);
@@ -223,13 +226,14 @@ async function processMessage() {
             const command = JSON.parse(multiVibrateMatch[1]);
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
                 const pattern = command.pattern;
-                const interval = command.interval;
+                const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
                 let patternIndex = 0;
 
                 const executeVibration = async () => {
                     if (patternIndex >= pattern.length) {
                         patternIndex = 0; // Loop the pattern
                     }
+
                     const intensity = pattern[patternIndex];
                     if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
                         $("#vibrate-slider").val(intensity);
@@ -237,11 +241,18 @@ async function processMessage() {
                         await device.vibrate(vibrateValue);
                         updateStatus(`Vibrating at ${intensity}% (Pattern)`);
                     }
+
+                    const currentInterval = intervals[patternIndex % intervals.length];
+                    $("#lovense-interval-display").text(`Interval: ${currentInterval}ms`);
                     patternIndex++;
+
+                    if (vibrateIntervalId) {
+                        clearTimeout(vibrateIntervalId);
+                    }
+                    vibrateIntervalId = setTimeout(executeVibration, currentInterval);
                 };
-                
-                executeVibration(); // Vibrate immediately with the first value
-                vibrateIntervalId = setInterval(executeVibration, interval);
+
+                executeVibration(); // Start the vibration loop
             }
         } catch (e) {
             console.error("Could not parse multi-level VIBRATE command.", e);
