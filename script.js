@@ -78,6 +78,10 @@ async function disconnect() {
             clearTimeout(vibrateIntervalId);
             vibrateIntervalId = null;
         }
+        if (oscillateIntervalId) {
+            clearTimeout(oscillateIntervalId);
+            oscillateIntervalId = null;
+        }
     } catch (e) {
         updateStatus(`Error disconnecting: ${e.message}`, true);
     }
@@ -116,6 +120,21 @@ function handleDeviceAdded(newDevice) {
         device.vibrate(0.5); // Vibrate at 50% intensity when connected
     } catch (e) {
         console.error("Initial vibrate command failed:", e);
+    }
+
+    // Oscillate slider
+    if (device.allowedMessages.Rotate) {
+        const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">');
+        oscillateSlider.on("input", async () => {
+            try {
+                await device.rotate(oscillateSlider.val() / 100);
+            } catch (e) {
+                console.error("Oscillate command failed:", e);
+            }
+        });
+        deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider);
+        const oscillateIntervalDisplay = $('<div id="lovense-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
+        deviceDiv.append(oscillateIntervalDisplay);
     }
 
     // Stroker controls
@@ -169,10 +188,15 @@ function handleDeviceRemoved() {
         clearTimeout(vibrateIntervalId);
         vibrateIntervalId = null;
     }
+    if (oscillateIntervalId) {
+        clearTimeout(oscillateIntervalId);
+        oscillateIntervalId = null;
+    }
 }
 
 let strokerIntervalId = null;
 let vibrateIntervalId = null;
+let oscillateIntervalId = null;
 let lastProcessedMessage = null;
 let isStroking = false; // To control the async stroking loop
 
@@ -191,16 +215,20 @@ async function processMessage() {
     // Regex definitions
     const multiVibrateRegex = /"VIBRATE"\s*:\s*({[^}]+})/i;
     const singleVibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
+    const multiOscillateRegex = /"OSCILLATE"\s*:\s*({[^}]+})/i;
+    const singleOscillateRegex = /"OSCILLATE"\s*:\s*(\d+)/i;
     const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
     const linearSpeedRegex = /"LINEAR_SPEED"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?start_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?steps(?:")?\s*:\s*(\d+)\s*}/i;
 
     const multiVibrateMatch = messageText.match(multiVibrateRegex);
     const singleVibrateMatch = messageText.match(singleVibrateRegex);
+    const multiOscillateMatch = messageText.match(multiOscillateRegex);
+    const singleOscillateMatch = messageText.match(singleOscillateRegex);
     const linearMatch = messageText.match(linearRegex);
     const linearSpeedMatch = messageText.match(linearSpeedRegex);
 
     // If any command is found, stop previous actions and mark the message as processed.
-    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch) {
+    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
         lastProcessedMessage = messageText;
     } else {
         return; // Not a command message, do nothing.
@@ -211,6 +239,11 @@ async function processMessage() {
             clearTimeout(vibrateIntervalId);
             vibrateIntervalId = null;
             $("#lovense-interval-display").text("Interval: N/A");
+        }
+        if (oscillateIntervalId) {
+            clearTimeout(oscillateIntervalId);
+            oscillateIntervalId = null;
+            $("#lovense-oscillate-interval-display").text("Oscillate Interval: N/A");
         }
         if (strokerIntervalId) {
             clearInterval(strokerIntervalId);
@@ -339,6 +372,55 @@ async function processMessage() {
             };
             
             strokerLoop();
+        }
+    } else if (multiOscillateMatch && multiOscillateMatch[1]) {
+        try {
+            const command = JSON.parse(multiOscillateMatch[1]);
+            if (command.pattern && Array.isArray(command.pattern) && command.interval) {
+                const pattern = command.pattern;
+                const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
+                let patternIndex = 0;
+
+                const executeOscillation = async () => {
+                    if (patternIndex >= pattern.length) {
+                        patternIndex = 0; // Loop the pattern
+                    }
+
+                    const intensity = pattern[patternIndex];
+                    if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
+                        $("#oscillate-slider").val(intensity);
+                        const oscillateValue = intensity / 100;
+                        await device.rotate(oscillateValue);
+                        updateStatus(`Oscillating at ${intensity}% (Pattern)`);
+                    }
+
+                    const currentInterval = intervals[patternIndex % intervals.length];
+                    $("#lovense-oscillate-interval-display").text(`Oscillate Interval: ${currentInterval}ms`);
+                    patternIndex++;
+
+                    if (oscillateIntervalId) {
+                        clearTimeout(oscillateIntervalId);
+                    }
+                    oscillateIntervalId = setTimeout(executeOscillation, currentInterval);
+                };
+
+                executeOscillation(); // Start the oscillation loop
+            }
+        } catch (e) {
+            console.error("Could not parse multi-level OSCILLATE command.", e);
+        }
+    } else if (singleOscillateMatch && singleOscillateMatch[1]) {
+        const intensity = parseInt(singleOscillateMatch[1], 10);
+        if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
+            $("#oscillate-slider").val(intensity);
+            const oscillateValue = intensity / 100;
+            try {
+                await device.rotate(oscillateValue);
+                updateStatus(`Oscillating at ${intensity}%`);
+            } catch (e) {
+                console.error("Oscillate command failed:", e);
+                updateStatus(`Oscillate command failed for ${device.name}`);
+            }
         }
     }
 }
