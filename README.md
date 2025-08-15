@@ -49,6 +49,14 @@ To set the vibration intensity to 80%, include the following in your message:
 To create a vibration pattern, provide an object with a `pattern` array and an `interval` (or array of intervals).
 `"VIBRATE": {"pattern": [20, 40, 20, 40, 30, 100], "interval": [1000, 3000]}`
 
+**Controlling the Loop:**
+
+You can also add a `"loop"` property to the pattern object to specify how many times the pattern should repeat. If the `"loop"` property is omitted, the pattern will repeat indefinitely.
+
+**Example (Pattern with Loop):**
+`"VIBRATE": {"pattern": [20, 100, 20], "interval": 1000, "loop": 3}`
+This will execute the vibration pattern three times and then stop.
+
 ### Oscillate Command
 
 To control the oscillation, your message must contain an `"OSCILLATE"` key. The value can be a number between 0 and 100, or an object for pattern-based oscillation.
@@ -62,6 +70,14 @@ To set the oscillation intensity to 80%, include the following in your message:
 
 To create an oscillation pattern, provide an object with a `pattern` array and an `interval` (or array of intervals).
 `"OSCILLATE": {"pattern": [20, 40, 20, 40, 30, 100], "interval": [2000, 3000]}`
+
+**Controlling the Loop:**
+
+You can also add a `"loop"` property to the pattern object to specify how many times the pattern should repeat. If the `"loop"` property is omitted, the pattern will repeat indefinitely.
+
+**Example (Pattern with Loop):**
+`"OSCILLATE": {"pattern": [20, 80, 20], "interval": 1000, "loop": 5}`
+This will execute the oscillation pattern five times and then stop.
 
 **Note:** The extension will attempt to send the `OSCILLATE` command even if the connected device does not explicitly support it.
 
