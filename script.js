@@ -258,11 +258,25 @@ async function processMessage() {
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
                 const pattern = command.pattern;
                 const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
+                const loopCount = command.loop; // Get the loop count
                 let patternIndex = 0;
+                let currentLoop = 0;
 
                 const executeVibration = async () => {
                     if (patternIndex >= pattern.length) {
-                        patternIndex = 0; // Loop the pattern
+                        patternIndex = 0; // Reset pattern index for the next loop
+                        currentLoop++;
+                        if (loopCount && currentLoop >= loopCount) {
+                            // Stop vibration if loop count is reached
+                            if (vibrateIntervalId) {
+                                clearTimeout(vibrateIntervalId);
+                                vibrateIntervalId = null;
+                            }
+                            await device.vibrate(0); // Turn off vibrator
+                            updateStatus("Vibration pattern finished");
+                            $("#intiface-interval-display").text("Interval: N/A");
+                            return;
+                        }
                     }
 
                     const intensity = pattern[patternIndex];
@@ -377,11 +391,29 @@ async function processMessage() {
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
                 const pattern = command.pattern;
                 const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
+                const loopCount = command.loop; // Get the loop count
                 let patternIndex = 0;
+                let currentLoop = 0;
 
                 const executeOscillation = async () => {
                     if (patternIndex >= pattern.length) {
-                        patternIndex = 0; // Loop the pattern
+                        patternIndex = 0; // Reset pattern index for the next loop
+                        currentLoop++;
+                        if (loopCount && currentLoop >= loopCount) {
+                            // Stop oscillation if loop count is reached
+                            if (oscillateIntervalId) {
+                                clearTimeout(oscillateIntervalId);
+                                oscillateIntervalId = null;
+                            }
+                            try {
+                                await device.oscillate(0); // Turn off oscillator
+                            } catch (e) {
+                                // Don't worry about it.
+                            }
+                            updateStatus("Oscillation pattern finished");
+                            $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A");
+                            return;
+                        }
                     }
 
                     const intensity = pattern[patternIndex];
