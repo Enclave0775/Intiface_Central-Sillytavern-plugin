@@ -115,6 +115,7 @@ The command must contain a `"LINEAR_PATTERN"` key with an object containing a `s
 
 ```json
 "LINEAR_PATTERN": {
+  "repeat": true,
   "segments": [
     { "start": 10, "end": 90, "durations": [1000, 500], "loop": 3 },
     { "start": 20, "end": 80, "durations": [1200], "loop": 5 }
@@ -123,6 +124,7 @@ The command must contain a `"LINEAR_PATTERN"` key with an object containing a `s
 ```
 
 *   **`segments`**: An array of segment objects. The extension will execute these segments sequentially.
+*   **`repeat`** (optional): If set to `true`, the entire sequence of segments will repeat indefinitely.
 *   **Each segment object contains:**
     *   `start`: The starting position (0-100) for this segment's back-and-forth motion.
     *   `end`: The ending position (0-100) for this segment's motion.
@@ -140,6 +142,10 @@ In the example above, the device will:
     *   Move between `20%` and `80%`.
     *   Every stroke in this segment will take 1200ms.
     *   This segment will repeat `5` times.
-3.  Once all segments are complete, the pattern will stop.
+3.  Because `"repeat": true` is present, after Segment 2 is finished, the device will automatically go back to Segment 1 and start the entire pattern over again.
+
+**Error Handling:**
+
+If a segment fails because the connected device does not support the `Linear` command, the extension will log the error and automatically skip to the next segment in the sequence.
 
 The extension will automatically detect these commands and control the device accordingly.
