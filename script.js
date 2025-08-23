@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { renderExtensionTemplateAsync } from "../../../extensions.js";
@@ -213,25 +212,122 @@ async function processMessage() {
 
     const messageText = lastMessage.mes;
 
-    // Regex definitions
+    // Special handler for complex, nested LINEAR_PATTERN command
+    const patternKey = '"LINEAR_PATTERN"';
+    const keyIndex = messageText.indexOf(patternKey);
+    if (keyIndex !== -1) {
+        const objectStartIndex = messageText.indexOf('{', keyIndex + patternKey.length);
+        if (objectStartIndex !== -1) {
+            let balance = 0;
+            let objectEndIndex = -1;
+            for (let i = objectStartIndex; i < messageText.length; i++) {
+                if (messageText[i] === '{') {
+                    balance++;
+                } else if (messageText[i] === '}') {
+                    balance--;
+                }
+                if (balance === 0) {
+                    objectEndIndex = i;
+                    break;
+                }
+            }
+
+            if (objectEndIndex !== -1) {
+                const jsonString = messageText.substring(objectStartIndex, objectEndIndex + 1);
+                try {
+                    const command = JSON.parse(jsonString);
+                    // If parsing is successful, we have a valid command. Execute and return.
+                    lastProcessedMessage = messageText;
+                    stopActions();
+
+                    const segments = command.segments;
+                    if (Array.isArray(segments) && segments.length > 0) {
+                        let segmentIndex = 0;
+                        let loopIndex = 0;
+                        let durationIndex = 0;
+                        let isAtStart = true;
+
+                        const executeSegment = async () => {
+                            if (segmentIndex >= segments.length) {
+                                updateStatus("All segments finished.");
+                                if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                                strokerIntervalId = null;
+                                return;
+                            }
+
+                            const segment = segments[segmentIndex];
+                            const startPos = segment.start;
+                            const endPos = segment.end;
+                            const durations = segment.durations;
+                            const loopCount = segment.loop || 1;
+
+                            if (isNaN(startPos) || isNaN(endPos) || !Array.isArray(durations) || durations.length === 0) {
+                                segmentIndex++;
+                                executeSegment();
+                                return;
+                            }
+
+                            if (loopIndex >= loopCount) {
+                                segmentIndex++;
+                                loopIndex = 0;
+                                durationIndex = 0;
+                                executeSegment();
+                                return;
+                            }
+                            
+                            if (durationIndex >= durations.length) {
+                                durationIndex = 0;
+                                loopIndex++;
+                            }
+                            
+                            const duration = durations[durationIndex];
+                            const targetPos = isAtStart ? endPos : startPos;
+
+                            $("#start-pos-slider").val(startPos).trigger('input');
+                            $("#end-pos-slider").val(endPos).trigger('input');
+                            $("#duration-input").val(duration).trigger('input');
+                            updateStatus(`Segment ${segmentIndex + 1}, Loop ${loopIndex + 1}: Stroking to ${targetPos}% over ${duration}ms`);
+
+                            try {
+                                await device.linear(targetPos / 100, duration);
+                                isAtStart = !isAtStart;
+                                durationIndex++;
+                                if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                                strokerIntervalId = setTimeout(executeSegment, duration);
+                            } catch (e) {
+                                const errorMsg = `Segment ${segmentIndex + 1} failed: ${e.message}`;
+                                console.error(errorMsg, e);
+                                updateStatus(errorMsg, true);
+                                if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                            }
+                        };
+                        executeSegment();
+                    }
+                    return; // Exit after handling LINEAR_PATTERN
+                } catch (e) {
+                    // Not a valid JSON object, fall through to legacy regex methods
+                }
+            }
+        }
+    }
+
+    // Regex definitions from the old, working version
     const multiVibrateRegex = /"VIBRATE"\s*:\s*({[^}]+})/i;
     const singleVibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
     const multiOscillateRegex = /"OSCILLATE"\s*:\s*({[^}]+})/i;
     const singleOscillateRegex = /"OSCILLATE"\s*:\s*(\d+)/i;
     const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
-    const linearPatternRegex = /"LINEAR_PATTERN"\s*:\s*({.+})/is;
     const linearSpeedRegex = /"LINEAR_SPEED"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?start_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?steps(?:")?\s*:\s*(\d+)\s*}/i;
 
     const multiVibrateMatch = messageText.match(multiVibrateRegex);
-    const singleVibrateMatch = messageText.match(singleVibrateMatch);
+    const singleVibrateMatch = messageText.match(singleVibrateRegex);
     const multiOscillateMatch = messageText.match(multiOscillateRegex);
     const singleOscillateMatch = messageText.match(singleOscillateRegex);
     const linearMatch = messageText.match(linearRegex);
-    const linearPatternMatch = messageText.match(linearPatternRegex);
     const linearSpeedMatch = messageText.match(linearSpeedRegex);
 
-    // If any command is found, stop previous actions and mark the message as processed.
-    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearPatternMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
+    // This is the old, working check
+    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
         lastProcessedMessage = messageText;
     } else {
         return; // Not a command message, do nothing.
@@ -257,52 +353,43 @@ async function processMessage() {
 
     stopActions();
 
+    // OLD, WORKING if/else if structure
     if (multiVibrateMatch && multiVibrateMatch[1]) {
         try {
             const command = JSON.parse(multiVibrateMatch[1]);
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
                 const pattern = command.pattern;
                 const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
-                const loopCount = command.loop; // Get the loop count
+                const loopCount = command.loop;
                 let patternIndex = 0;
                 let currentLoop = 0;
 
                 const executeVibration = async () => {
                     if (patternIndex >= pattern.length) {
-                        patternIndex = 0; // Reset pattern index for the next loop
+                        patternIndex = 0;
                         currentLoop++;
                         if (loopCount && currentLoop >= loopCount) {
-                            // Stop vibration if loop count is reached
-                            if (vibrateIntervalId) {
-                                clearTimeout(vibrateIntervalId);
-                                vibrateIntervalId = null;
-                            }
-                            await device.vibrate(0); // Turn off vibrator
+                            if (vibrateIntervalId) clearTimeout(vibrateIntervalId);
+                            vibrateIntervalId = null;
+                            await device.vibrate(0);
                             updateStatus("Vibration pattern finished");
                             $("#intiface-interval-display").text("Interval: N/A");
                             return;
                         }
                     }
-
                     const intensity = pattern[patternIndex];
                     if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
                         $("#vibrate-slider").val(intensity);
-                        const vibrateValue = intensity / 100;
-                        await device.vibrate(vibrateValue);
+                        await device.vibrate(intensity / 100);
                         updateStatus(`Vibrating at ${intensity}% (Pattern)`);
                     }
-
                     const currentInterval = intervals[patternIndex % intervals.length];
                     $("#intiface-interval-display").text(`Interval: ${currentInterval}ms`);
                     patternIndex++;
-
-                    if (vibrateIntervalId) {
-                        clearTimeout(vibrateIntervalId);
-                    }
+                    if (vibrateIntervalId) clearTimeout(vibrateIntervalId);
                     vibrateIntervalId = setTimeout(executeVibration, currentInterval);
                 };
-
-                executeVibration(); // Start the vibration loop
+                executeVibration();
             }
         } catch (e) {
             console.error("Could not parse multi-level VIBRATE command.", e);
@@ -311,13 +398,11 @@ async function processMessage() {
         const intensity = parseInt(singleVibrateMatch[1], 10);
         if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
             $("#vibrate-slider").val(intensity);
-            const vibrateValue = intensity / 100;
             try {
-                await device.vibrate(vibrateValue);
+                await device.vibrate(intensity / 100);
                 updateStatus(`Vibrating at ${intensity}%`);
             } catch (e) {
-                console.error("Vibrate command failed:", e);
-                updateStatus(`Vibrate command failed for ${device.name}`);
+                updateStatus(`Vibrate command failed: ${e.message}`, true);
             }
         }
     } else if (linearMatch && linearMatch.length === 4) {
@@ -332,103 +417,17 @@ async function processMessage() {
             $("#duration-input").val(duration).trigger('input');
             
             let isAtStart = true;
-            // Initial move
-            device.linear(isAtStart ? endPos / 100 : startPos / 100, duration).catch(e => {
+            const move = () => device.linear(isAtStart ? endPos / 100 : startPos / 100, duration).catch(e => {
                 const errorMsg = `Linear command failed: ${e.message}`;
                 console.error(errorMsg, e);
                 updateStatus(errorMsg, true);
             });
+            move();
             isAtStart = !isAtStart;
-
-            strokerIntervalId = setInterval(async () => {
-                const targetPos = isAtStart ? endPos / 100 : startPos / 100;
-                try {
-                    await device.linear(targetPos, duration);
-                    isAtStart = !isAtStart;
-                } catch (e) {
-                    const errorMsg = `Linear command failed: ${e.message}`;
-                    console.error(errorMsg, e);
-                    updateStatus(errorMsg, true);
-                }
+            strokerIntervalId = setInterval(() => {
+                move();
+                isAtStart = !isAtStart;
             }, duration);
-        }
-    } else if (linearPatternMatch && linearPatternMatch[1]) {
-        try {
-            const command = JSON.parse(linearPatternMatch[1]);
-            const segments = command.segments;
-
-            if (Array.isArray(segments) && segments.length > 0) {
-                let segmentIndex = 0;
-                let loopIndex = 0;
-                let durationIndex = 0;
-                let isAtStart = true;
-
-                const executeSegment = async () => {
-                    if (segmentIndex >= segments.length) {
-                        updateStatus("All segments finished.");
-                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
-                        strokerIntervalId = null;
-                        return;
-                    }
-
-                    const segment = segments[segmentIndex];
-                    const startPos = segment.start;
-                    const endPos = segment.end;
-                    const durations = segment.durations;
-                    const loopCount = segment.loop || 1;
-
-                    if (isNaN(startPos) || isNaN(endPos) || !Array.isArray(durations) || durations.length === 0) {
-                        segmentIndex++;
-                        executeSegment(); // Skip invalid segment
-                        return;
-                    }
-
-                    if (loopIndex >= loopCount) {
-                        segmentIndex++;
-                        loopIndex = 0;
-                        durationIndex = 0;
-                        executeSegment(); // Move to next segment
-                        return;
-                    }
-                    
-                    if (durationIndex >= durations.length) {
-                        durationIndex = 0;
-                        loopIndex++;
-                    }
-                    
-                    // Before starting a new segment, move to its start position if not already there
-                    // This is a simplified approach; a more robust one might need an explicit "travel" move.
-                    // For now, we assume the pattern flows continuously.
-                    
-                    const duration = durations[durationIndex];
-                    const targetPos = isAtStart ? endPos : startPos;
-
-                    $("#start-pos-slider").val(startPos).trigger('input');
-                    $("#end-pos-slider").val(endPos).trigger('input');
-                    $("#duration-input").val(duration).trigger('input');
-                    updateStatus(`Segment ${segmentIndex + 1}, Loop ${loopIndex + 1}: Stroking to ${targetPos}% over ${duration}ms`);
-
-                    try {
-                        await device.linear(targetPos / 100, duration);
-                        isAtStart = !isAtStart;
-                        durationIndex++;
-
-                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
-                        strokerIntervalId = setTimeout(executeSegment, duration);
-                    } catch (e) {
-                        const errorMsg = `Segment ${segmentIndex + 1} failed: ${e.message}`;
-                        console.error(errorMsg, e);
-                        updateStatus(errorMsg, true);
-                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
-                    }
-                };
-
-                executeSegment();
-            }
-        } catch (e) {
-            const errorMsg = `Could not parse LINEAR_PATTERN: ${e.message}`;
-            console.error(errorMsg, e);
-            updateStatus(errorMsg, true);
         }
     } else if (linearSpeedMatch && linearSpeedMatch.length === 6) {
         const startPos = parseInt(linearSpeedMatch[1], 10);
@@ -446,35 +445,26 @@ async function processMessage() {
             isStroking = true;
 
             const strokerLoop = async () => {
-                while (isStroking) {
-                    const progress = currentStep / (steps - 1);
-                    const duration = Math.round(startDur + (endDur - startDur) * progress);
-
-                    $("#duration-input").val(duration).trigger('input');
-                    updateStatus(`Stroking. Duration: ${duration}ms`);
-
-                    const targetPos = isAtStart ? endPos / 100 : startPos / 100;
-
-                    try {
-                        if (!isStroking) break;
-                        await device.linear(targetPos, duration);
-                        // Wait for the movement to complete
-                        await new Promise(resolve => setTimeout(resolve, duration));
-
-                        isAtStart = !isAtStart;
-                        currentStep++;
-                        if (currentStep >= steps) {
-                            currentStep = 0; // Loop the pattern
-                        }
-                    } catch (e) {
-                        const errorMsg = `Linear Speed command failed: ${e.message}`;
-                        console.error(errorMsg, e);
-                        updateStatus(errorMsg, true);
-                        isStroking = false; // Stop on error
-                    }
+                if (!isStroking) return;
+                const progress = currentStep / (steps - 1);
+                const duration = Math.round(startDur + (endDur - startDur) * progress);
+                $("#duration-input").val(duration).trigger('input');
+                updateStatus(`Stroking. Duration: ${duration}ms`);
+                const targetPos = isAtStart ? endPos / 100 : startPos / 100;
+                try {
+                    await device.linear(targetPos, duration);
+                    await new Promise(resolve => setTimeout(resolve, duration));
+                    isAtStart = !isAtStart;
+                    currentStep++;
+                    if (currentStep >= steps) currentStep = 0;
+                    strokerLoop();
+                } catch (e) {
+                    const errorMsg = `Linear Speed command failed: ${e.message}`;
+                    console.error(errorMsg, e);
+                    updateStatus(errorMsg, true);
+                    isStroking = false;
                 }
             };
-            
             strokerLoop();
         }
     } else if (multiOscillateMatch && multiOscillateMatch[1]) {
@@ -483,54 +473,38 @@ async function processMessage() {
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
                 const pattern = command.pattern;
                 const intervals = Array.isArray(command.interval) ? command.interval : [command.interval];
-                const loopCount = command.loop; // Get the loop count
+                const loopCount = command.loop;
                 let patternIndex = 0;
                 let currentLoop = 0;
 
                 const executeOscillation = async () => {
                     if (patternIndex >= pattern.length) {
-                        patternIndex = 0; // Reset pattern index for the next loop
+                        patternIndex = 0;
                         currentLoop++;
                         if (loopCount && currentLoop >= loopCount) {
-                            // Stop oscillation if loop count is reached
-                            if (oscillateIntervalId) {
-                                clearTimeout(oscillateIntervalId);
-                                oscillateIntervalId = null;
-                            }
-                            try {
-                                await device.oscillate(0); // Turn off oscillator
-                            } catch (e) {
-                                // Don't worry about it.
-                            }
+                            if (oscillateIntervalId) clearTimeout(oscillateIntervalId);
+                            oscillateIntervalId = null;
+                            try { await device.oscillate(0); } catch (e) { /* Ignore */ }
                             updateStatus("Oscillation pattern finished");
                             $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A");
                             return;
                         }
                     }
-
                     const intensity = pattern[patternIndex];
                     if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-                        $("#oscillate-slider").val(intensity);
-                        const oscillateValue = intensity / 100;
+                        $("#oscillate-slider").val(intensity).trigger('input');
                         try {
-                            await device.oscillate(oscillateValue);
-                        } catch (e) {
-                            // Don't worry about it, some devices don't support this.
-                        }
+                            await device.oscillate(intensity / 100);
+                        } catch (e) { /* Ignore */ }
                         updateStatus(`Oscillating at ${intensity}% (Pattern)`);
                     }
-
                     const currentInterval = intervals[patternIndex % intervals.length];
                     $("#intiface-oscillate-interval-display").text(`Oscillate Interval: ${currentInterval}ms`);
                     patternIndex++;
-
-                    if (oscillateIntervalId) {
-                        clearTimeout(oscillateIntervalId);
-                    }
+                    if (oscillateIntervalId) clearTimeout(oscillateIntervalId);
                     oscillateIntervalId = setTimeout(executeOscillation, currentInterval);
                 };
-
-                executeOscillation(); // Start the oscillation loop
+                executeOscillation();
             }
         } catch (e) {
             console.error("Could not parse multi-level OSCILLATE command.", e);
@@ -538,10 +512,9 @@ async function processMessage() {
     } else if (singleOscillateMatch && singleOscillateMatch[1]) {
         const intensity = parseInt(singleOscillateMatch[1], 10);
         if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-            $("#oscillate-slider").val(intensity);
-            const oscillateValue = intensity / 100;
+            $("#oscillate-slider").val(intensity).trigger('input');
             try {
-                await device.oscillate(oscillateValue);
+                await device.oscillate(intensity / 100);
                 updateStatus(`Oscillating at ${intensity}%`);
             } catch (e) {
                 // Don't worry about it, some devices don't support this.
