@@ -33,7 +33,7 @@ This is an extension for SillyTavern that allows you to connect and control Inti
 
 ## Chat Command Formats
 
-The extension supports three primary commands: `VIBRATE`, `OSCILLATE`, and `LINEAR`.
+The extension supports multiple commands, including `VIBRATE`, `OSCILLATE`, `LINEAR`, `LINEAR_SPEED`, and `LINEAR_PATTERN`.
 
 ### Vibrate Command
 
@@ -92,5 +92,54 @@ To control linear movement, your message must contain a `"LINEAR"` key with an o
 
 To move the device from 10% to 90% position over 2 seconds (2000ms), include the following in your message:
 `"LINEAR": {"start_position": 10, "end_position": 90, "duration": 2000}`
+
+### Linear Speed Gradient Command
+
+To create a smooth, gradual change in speed (a speed ramp), use the `LINEAR_SPEED` command. This is ideal for creating build-up or cool-down effects.
+
+*   `start_position`, `end_position`: The fixed range of motion.
+*   `start_duration`: The duration of the first stroke (e.g., a high value for slow speed).
+*   `end_duration`: The duration of the final stroke (e.g., a low value for high speed).
+*   `steps`: The number of strokes it will take to transition from the start duration to the end duration.
+
+**Example:**
+
+To move the device between 10% and 90%, and have the speed gradually increase from a 2-second stroke to a 0.5-second stroke over 10 steps:
+`"LINEAR_SPEED": {"start_position": 10, "end_position": 90, "start_duration": 2000, "end_duration": 500, "steps": 10}`
+
+### Advanced Linear Pattern Command
+
+To create complex linear movement patterns with variable positions, speeds, and loops, use the `LINEAR_PATTERN` command with a `segments` structure. This allows you to chain multiple, distinct movement patterns together.
+
+The command must contain a `"LINEAR_PATTERN"` key with an object containing a `segments` array.
+
+```json
+"LINEAR_PATTERN": {
+  "segments": [
+    { "start": 10, "end": 90, "durations": [1000, 500], "loop": 3 },
+    { "start": 20, "end": 80, "durations": [1200], "loop": 5 }
+  ]
+}
+```
+
+*   **`segments`**: An array of segment objects. The extension will execute these segments sequentially.
+*   **Each segment object contains:**
+    *   `start`: The starting position (0-100) for this segment's back-and-forth motion.
+    *   `end`: The ending position (0-100) for this segment's motion.
+    *   `durations`: An array of durations (in milliseconds). The device will cycle through these durations for each stroke within the segment. If only one duration is provided, it will be used for all strokes in that segment.
+    *   `loop` (optional): The number of times this specific segment (including its full `durations` cycle) should repeat. Defaults to `1` if omitted.
+
+**Example Explained:**
+
+In the example above, the device will:
+1.  First, execute **Segment 1**:
+    *   Move between `10%` and `90%`.
+    *   The first stroke will take 1000ms, the second will take 500ms, the third will take 1000ms, and so on.
+    *   This segment will repeat `3` times.
+2.  After completing Segment 1, it will automatically begin **Segment 2**:
+    *   Move between `20%` and `80%`.
+    *   Every stroke in this segment will take 1200ms.
+    *   This segment will repeat `5` times.
+3.  Once all segments are complete, the pattern will stop.
 
 The extension will automatically detect these commands and control the device accordingly.
