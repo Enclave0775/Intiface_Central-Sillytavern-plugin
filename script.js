@@ -260,6 +260,8 @@ async function processMessage() {
                 stopActions();
 
                 const segments = command.segments;
+                const repeat = command.repeat === true;
+
                     if (Array.isArray(segments) && segments.length > 0) {
                         let segmentIndex = 0;
                         let loopIndex = 0;
@@ -268,6 +270,14 @@ async function processMessage() {
 
                         const executeSegment = async () => {
                             if (segmentIndex >= segments.length) {
+                                if (repeat) {
+                                    segmentIndex = 0;
+                                    loopIndex = 0;
+                                    durationIndex = 0;
+                                    updateStatus("Repeating pattern...");
+                                    strokerIntervalId = setTimeout(executeSegment, 100);
+                                    return;
+                                }
                                 updateStatus("All segments finished.");
                                 if (strokerIntervalId) clearTimeout(strokerIntervalId);
                                 strokerIntervalId = null;
