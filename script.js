@@ -135,7 +135,8 @@ function handleDeviceAdded(newDevice) {
     const oscillateIntervalDisplay = $('<div id="intiface-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>');
     deviceDiv.append(oscillateIntervalDisplay);
 
-    // Stroker controls
+    // Linear Controls
+    deviceDiv.append('<h4>Linear Controls</h4>');
     const startPosSlider = $('<input type="range" min="0" max="100" value="10" id="start-pos-slider">');
     const endPosSlider = $('<input type="range" min="0" max="100" value="90" id="end-pos-slider">');
     const durationInput = $('<input type="number" id="duration-input" value="1000" style="width: 60px;">');
@@ -158,7 +159,9 @@ function handleDeviceAdded(newDevice) {
                 await device.linear(targetPos, duration);
                 isAtStart = !isAtStart;
             } catch (e) {
-                console.error("Stroker command failed:", e);
+                const errorMsg = `Manual Linear failed: ${e.message}`;
+                console.error(errorMsg, e);
+                updateStatus(errorMsg, true);
             }
         }, duration);
     });
@@ -216,17 +219,19 @@ async function processMessage() {
     const multiOscillateRegex = /"OSCILLATE"\s*:\s*({[^}]+})/i;
     const singleOscillateRegex = /"OSCILLATE"\s*:\s*(\d+)/i;
     const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
+    const linearPatternRegex = /"LINEAR_PATTERN"\s*:\s*({.+})/is;
     const linearSpeedRegex = /"LINEAR_SPEED"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?start_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?steps(?:")?\s*:\s*(\d+)\s*}/i;
 
     const multiVibrateMatch = messageText.match(multiVibrateRegex);
-    const singleVibrateMatch = messageText.match(singleVibrateRegex);
+    const singleVibrateMatch = messageText.match(singleVibrateMatch);
     const multiOscillateMatch = messageText.match(multiOscillateRegex);
     const singleOscillateMatch = messageText.match(singleOscillateRegex);
     const linearMatch = messageText.match(linearRegex);
+    const linearPatternMatch = messageText.match(linearPatternRegex);
     const linearSpeedMatch = messageText.match(linearSpeedRegex);
 
     // If any command is found, stop previous actions and mark the message as processed.
-    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
+    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearPatternMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
         lastProcessedMessage = messageText;
     } else {
         return; // Not a command message, do nothing.
@@ -321,13 +326,18 @@ async function processMessage() {
         const duration = parseInt(linearMatch[3], 10);
 
         if (!isNaN(startPos) && !isNaN(endPos) && !isNaN(duration)) {
-            $("#start-pos-slider").val(startPos);
-            $("#end-pos-slider").val(endPos);
-            $("#duration-input").val(duration);
+            updateStatus(`Linear command received: ${startPos}-${endPos}% over ${duration}ms`);
+            $("#start-pos-slider").val(startPos).trigger('input');
+            $("#end-pos-slider").val(endPos).trigger('input');
+            $("#duration-input").val(duration).trigger('input');
             
             let isAtStart = true;
             // Initial move
-            device.linear(isAtStart ? endPos / 100 : startPos / 100, duration).catch(e => console.error(e));
+            device.linear(isAtStart ? endPos / 100 : startPos / 100, duration).catch(e => {
+                const errorMsg = `Linear command failed: ${e.message}`;
+                console.error(errorMsg, e);
+                updateStatus(errorMsg, true);
+            });
             isAtStart = !isAtStart;
 
             strokerIntervalId = setInterval(async () => {
@@ -336,9 +346,89 @@ async function processMessage() {
                     await device.linear(targetPos, duration);
                     isAtStart = !isAtStart;
                 } catch (e) {
-                    console.error("Stroker command failed:", e);
+                    const errorMsg = `Linear command failed: ${e.message}`;
+                    console.error(errorMsg, e);
+                    updateStatus(errorMsg, true);
                 }
             }, duration);
+        }
+    } else if (linearPatternMatch && linearPatternMatch[1]) {
+        try {
+            const command = JSON.parse(linearPatternMatch[1]);
+            const segments = command.segments;
+
+            if (Array.isArray(segments) && segments.length > 0) {
+                let segmentIndex = 0;
+                let loopIndex = 0;
+                let durationIndex = 0;
+                let isAtStart = true;
+
+                const executeSegment = async () => {
+                    if (segmentIndex >= segments.length) {
+                        updateStatus("All segments finished.");
+                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                        strokerIntervalId = null;
+                        return;
+                    }
+
+                    const segment = segments[segmentIndex];
+                    const startPos = segment.start;
+                    const endPos = segment.end;
+                    const durations = segment.durations;
+                    const loopCount = segment.loop || 1;
+
+                    if (isNaN(startPos) || isNaN(endPos) || !Array.isArray(durations) || durations.length === 0) {
+                        segmentIndex++;
+                        executeSegment(); // Skip invalid segment
+                        return;
+                    }
+
+                    if (loopIndex >= loopCount) {
+                        segmentIndex++;
+                        loopIndex = 0;
+                        durationIndex = 0;
+                        executeSegment(); // Move to next segment
+                        return;
+                    }
+                    
+                    if (durationIndex >= durations.length) {
+                        durationIndex = 0;
+                        loopIndex++;
+                    }
+                    
+                    // Before starting a new segment, move to its start position if not already there
+                    // This is a simplified approach; a more robust one might need an explicit "travel" move.
+                    // For now, we assume the pattern flows continuously.
+                    
+                    const duration = durations[durationIndex];
+                    const targetPos = isAtStart ? endPos : startPos;
+
+                    $("#start-pos-slider").val(startPos).trigger('input');
+                    $("#end-pos-slider").val(endPos).trigger('input');
+                    $("#duration-input").val(duration).trigger('input');
+                    updateStatus(`Segment ${segmentIndex + 1}, Loop ${loopIndex + 1}: Stroking to ${targetPos}% over ${duration}ms`);
+
+                    try {
+                        await device.linear(targetPos / 100, duration);
+                        isAtStart = !isAtStart;
+                        durationIndex++;
+
+                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                        strokerIntervalId = setTimeout(executeSegment, duration);
+                    } catch (e) {
+                        const errorMsg = `Segment ${segmentIndex + 1} failed: ${e.message}`;
+                        console.error(errorMsg, e);
+                        updateStatus(errorMsg, true);
+                        if (strokerIntervalId) clearTimeout(strokerIntervalId);
+                    }
+                };
+
+                executeSegment();
+            }
+        } catch (e) {
+            const errorMsg = `Could not parse LINEAR_PATTERN: ${e.message}`;
+            console.error(errorMsg, e);
+            updateStatus(errorMsg, true);
         }
     } else if (linearSpeedMatch && linearSpeedMatch.length === 6) {
         const startPos = parseInt(linearSpeedMatch[1], 10);
@@ -348,8 +438,8 @@ async function processMessage() {
         const steps = parseInt(linearSpeedMatch[5], 10);
 
         if (!isNaN(startPos) && !isNaN(endPos) && !isNaN(startDur) && !isNaN(endDur) && !isNaN(steps) && steps > 1) {
-            $("#start-pos-slider").val(startPos);
-            $("#end-pos-slider").val(endPos);
+            $("#start-pos-slider").val(startPos).trigger('input');
+            $("#end-pos-slider").val(endPos).trigger('input');
             
             let isAtStart = true;
             let currentStep = 0;
@@ -360,7 +450,7 @@ async function processMessage() {
                     const progress = currentStep / (steps - 1);
                     const duration = Math.round(startDur + (endDur - startDur) * progress);
 
-                    $("#duration-input").val(duration);
+                    $("#duration-input").val(duration).trigger('input');
                     updateStatus(`Stroking. Duration: ${duration}ms`);
 
                     const targetPos = isAtStart ? endPos / 100 : startPos / 100;
@@ -377,7 +467,9 @@ async function processMessage() {
                             currentStep = 0; // Loop the pattern
                         }
                     } catch (e) {
-                        console.error("Stroker command failed:", e);
+                        const errorMsg = `Linear Speed command failed: ${e.message}`;
+                        console.error(errorMsg, e);
+                        updateStatus(errorMsg, true);
                         isStroking = false; // Stop on error
                     }
                 }
