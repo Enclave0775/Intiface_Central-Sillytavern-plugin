@@ -318,6 +318,12 @@ async function processMessage() {
                                 console.error(errorMsg, e);
                                 updateStatus(errorMsg, true);
                                 if (strokerIntervalId) clearTimeout(strokerIntervalId);
+
+                                // Skip to the next segment after a failure
+                                segmentIndex++;
+                                loopIndex = 0;
+                                durationIndex = 0;
+                                strokerIntervalId = setTimeout(executeSegment, 500); // Wait 0.5s before trying next segment
                             }
                         };
                         executeSegment();
