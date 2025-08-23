@@ -210,37 +210,56 @@ async function processMessage() {
         return; // No new message or message already processed
     }
 
+    const stopActions = () => {
+        if (vibrateIntervalId) {
+            clearTimeout(vibrateIntervalId);
+            vibrateIntervalId = null;
+            $("#intiface-interval-display").text("Interval: N/A");
+        }
+        if (oscillateIntervalId) {
+            clearTimeout(oscillateIntervalId);
+            oscillateIntervalId = null;
+            $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A");
+        }
+        if (strokerIntervalId) {
+            clearInterval(strokerIntervalId);
+            strokerIntervalId = null;
+        }
+        isStroking = false;
+    };
+
     const messageText = lastMessage.mes;
 
     // Special handler for complex, nested LINEAR_PATTERN command
-    const patternKey = '"LINEAR_PATTERN"';
-    const keyIndex = messageText.indexOf(patternKey);
-    if (keyIndex !== -1) {
-        const objectStartIndex = messageText.indexOf('{', keyIndex + patternKey.length);
-        if (objectStartIndex !== -1) {
-            let balance = 0;
-            let objectEndIndex = -1;
-            for (let i = objectStartIndex; i < messageText.length; i++) {
-                if (messageText[i] === '{') {
-                    balance++;
-                } else if (messageText[i] === '}') {
-                    balance--;
-                }
-                if (balance === 0) {
-                    objectEndIndex = i;
-                    break;
-                }
+    const linearPatternRegex = /"LINEAR_PATTERN"\s*:\s*({)/i;
+    const linearPatternMatch = messageText.match(linearPatternRegex);
+
+    if (linearPatternMatch) {
+        const objectStartIndex = linearPatternMatch.index + linearPatternMatch[0].length - 1;
+        let balance = 1;
+        let objectEndIndex = -1;
+
+        for (let i = objectStartIndex + 1; i < messageText.length; i++) {
+            if (messageText[i] === '{') {
+                balance++;
+            } else if (messageText[i] === '}') {
+                balance--;
             }
+            if (balance === 0) {
+                objectEndIndex = i;
+                break;
+            }
+        }
 
-            if (objectEndIndex !== -1) {
-                const jsonString = messageText.substring(objectStartIndex, objectEndIndex + 1);
-                try {
-                    const command = JSON.parse(jsonString);
-                    // If parsing is successful, we have a valid command. Execute and return.
-                    lastProcessedMessage = messageText;
-                    stopActions();
+        if (objectEndIndex !== -1) {
+            const jsonString = messageText.substring(objectStartIndex, objectEndIndex + 1);
+            try {
+                const command = JSON.parse(jsonString);
+                // If parsing is successful, we have a valid command. Execute and return.
+                lastProcessedMessage = messageText;
+                stopActions();
 
-                    const segments = command.segments;
+                const segments = command.segments;
                     if (Array.isArray(segments) && segments.length > 0) {
                         let segmentIndex = 0;
                         let loopIndex = 0;
@@ -305,10 +324,10 @@ async function processMessage() {
                     }
                     return; // Exit after handling LINEAR_PATTERN
                 } catch (e) {
+                    console.error("Could not parse LINEAR_PATTERN command. String was:", jsonString, "Error:", e);
                     // Not a valid JSON object, fall through to legacy regex methods
                 }
             }
-        }
     }
 
     // Regex definitions from the old, working version
@@ -332,24 +351,6 @@ async function processMessage() {
     } else {
         return; // Not a command message, do nothing.
     }
-
-    const stopActions = () => {
-        if (vibrateIntervalId) {
-            clearTimeout(vibrateIntervalId);
-            vibrateIntervalId = null;
-            $("#intiface-interval-display").text("Interval: N/A");
-        }
-        if (oscillateIntervalId) {
-            clearTimeout(oscillateIntervalId);
-            oscillateIntervalId = null;
-            $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A");
-        }
-        if (strokerIntervalId) {
-            clearInterval(strokerIntervalId);
-            strokerIntervalId = null;
-        }
-        isStroking = false;
-    };
 
     stopActions();
 
