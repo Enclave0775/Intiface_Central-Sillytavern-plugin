@@ -27,3 +27,44 @@
     background-color: #4CAF50; /* Green */
     color: white;
 }
+
+#intiface-connect-action-button,
+#intiface-scan-button,
+#intiface-rescan-button {
+    transition: color 0.3s ease, opacity 0.3s ease;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 5px !important;
+}
+
+#intiface-connect-action-button:hover,
+#intiface-scan-button:hover,
+#intiface-rescan-button:hover {
+    opacity: 0.7;
+}
+
+#intiface-connect-action-button i,
+#intiface-scan-button i,
+#intiface-rescan-button i {
+    margin-right: 5px;
+}
+
+/* Connect Button (Default State) */
+#intiface-connect-action-button.connect-button {
+    color: #4CAF50; /* Green */
+}
+
+/* Disconnect Button */
+#intiface-connect-action-button.disconnect-button {
+    color: #f44336; /* Red */
+}
+
+/* Scan Button */
+#intiface-scan-button {
+    color: #ff9800; /* Orange */
+}
+
+/* Rescan Button */
+#intiface-rescan-button {
+    color: #2196F3; /* Blue */
+}
