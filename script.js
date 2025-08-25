@@ -39,8 +39,14 @@ function updateStatus(status, isError = false) {
 }
 
 function updateButtonStates(isConnected) {
-    $("#intiface-connect-action-button").text(isConnected ? "Disconnect" : "Connect");
+    const connectButton = $("#intiface-connect-action-button");
+    if (isConnected) {
+        connectButton.html('<i class="fa-solid fa-power-off"></i> Disconnect').removeClass('connect-button').addClass('disconnect-button');
+    } else {
+        connectButton.html('<i class="fa-solid fa-power-off"></i> Connect').removeClass('disconnect-button').addClass('connect-button');
+    }
     $("#intiface-scan-button").toggle(isConnected);
+    $("#intiface-rescan-button").toggle(isConnected);
     $("#intiface-connect-button .drawer-icon").toggleClass("flashing-icon", isConnected);
 }
 
@@ -199,6 +205,12 @@ let vibrateIntervalId = null;
 let oscillateIntervalId = null;
 let lastProcessedMessage = null;
 let isStroking = false; // To control the async stroking loop
+
+async function rescanLastMessage() {
+    updateStatus("Rescanning last message...");
+    lastProcessedMessage = null;
+    await processMessage();
+}
 
 async function processMessage() {
     if (!device) return;
@@ -577,6 +589,7 @@ $(async () => {
 
         $("#intiface-connect-action-button").on("click", toggleConnection);
         $("#intiface-scan-button").on("click", startScanning);
+        $("#intiface-rescan-button").on("click", rescanLastMessage);
 
         updateButtonStates(client.connected);
         updateStatus("Disconnected");
