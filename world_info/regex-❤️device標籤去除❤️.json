@@ -1,0 +1,18 @@
+{
+    "id": "129abe82-7ae1-426a-9dc6-008910df76c8",
+    "scriptName": "❤️device標籤去除❤️",
+    "findRegex": "/<device>([\\s\\S]*?)<\\/device>/g",
+    "replaceString": "",
+    "trimStrings": [],
+    "placement": [
+        1,
+        2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+}
