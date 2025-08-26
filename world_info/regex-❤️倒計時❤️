@@ -1,0 +1,18 @@
+{
+    "id": "8ca1c337-5f98-44a1-bc92-5a3a17b2cc32",
+    "scriptName": "❤️倒計時❤️",
+    "findRegex": "<H>(\\d+),(.+?)<H>",
+    "replaceString": "```\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <style>\n        body {\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            height: 100vh;\n            margin: 0;\n            background-color: #282c34; /* Dark background for contrast */\n        }\n        #timer {\n            font-family: 'Arial', sans-serif;\n            font-size: 15vw; /* Responsive font size */\n            font-weight: bold;\n            color: #FF69B4; /* Hot Pink */\n            transition: transform 0.5s ease;\n        }\n    </style>\n</head>\n<body>\n\n    <div id=\"timer\">$1</div>\n\n    <script>\n        (function() {\n            const timerElement = document.getElementById('timer');\n            \n            // Placeholders for replacement\n            const initialCount = $1; \n            const finalMessage = \"$2\";\n\n            let count = initialCount;\n            timerElement.textContent = count;\n\n            const countdownInterval = setInterval(() => {\n                count--;\n                if (count >= 0) {\n                    timerElement.textContent = count;\n                } else {\n                    clearInterval(countdownInterval);\n                    triggerSlash(`/send \"VIBRATE\": 0 \"OSCILLATE\": 0 \"LINEAR\": {\"start_position\": 0, \"end_position\": 0, \"duration\": 0}`);\n                    // Show final message\n                    timerElement.textContent = finalMessage;\n                }\n            }, 1000);\n        })();\n    </script>\n\n</body>\n</html>\n```",
+    "trimStrings": [],
+    "placement": [
+        1,
+        2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": false,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+}
