@@ -101,7 +101,7 @@ async function startScanning() {
     }
 }
 
-function handleDeviceAdded(newDevice) {
+async function handleDeviceAdded(newDevice) {
     updateStatus("Device found!");
     device = newDevice; // Store the device
     const devicesEl = $("#intiface-devices");
@@ -109,22 +109,44 @@ function handleDeviceAdded(newDevice) {
     const deviceDiv = $(`<div id="device-${device.index}"></div>`);
     deviceDiv.html(`<h3>${device.name}</h3>`);
 
-    // Vibrate slider
-    const vibrateSlider = $('<input type="range" min="0" max="100" value="50" id="vibrate-slider">');
-    vibrateSlider.on("input", async () => {
+    // Vibrate sliders
+    const vibrateAttributes = device.vibrateAttributes;
+    if (vibrateAttributes && vibrateAttributes.length > 0) {
+        const vibrateContainer = $('<div id="vibrate-controls"></div>');
+        vibrateAttributes.forEach((attr, index) => {
+            const sliderId = `vibrate-slider-${index}`;
+            const label = $(`<span>Vibrate ${index + 1}: </span>`);
+            const slider = $(`<input type="range" min="0" max="100" value="50" id="${sliderId}" class="vibrate-slider" data-index="${index}">`);
+            vibrateContainer.append($('<div>').append(label).append(slider));
+        });
+        deviceDiv.append(vibrateContainer);
+
+        // Shared event handler for all vibrate sliders within this device
+        vibrateContainer.on("input", ".vibrate-slider", async () => {
+            const speeds = [];
+            vibrateContainer.find(".vibrate-slider").each(function() {
+                speeds.push($(this).val() / 100);
+            });
+            try {
+                // If only one motor, send a number. Otherwise, send an array.
+                const command = speeds.length === 1 ? speeds[0] : speeds;
+                await device.vibrate(command);
+            } catch (e) {
+                console.error("Vibrate command failed:", e);
+            }
+        });
+
+        const intervalDisplay = $('<div id="intiface-interval-display" style="margin-top: 10px;">Interval: N/A</div>');
+        deviceDiv.append(intervalDisplay);
+
         try {
-            await device.vibrate(vibrateSlider.val() / 100);
+            // Vibrate all motors at 50% intensity when connected
+            const initialSpeeds = new Array(vibrateAttributes.length).fill(0.5);
+            const command = initialSpeeds.length === 1 ? initialSpeeds[0] : initialSpeeds;
+            await device.vibrate(command);
         } catch (e) {
-            console.error("Vibrate command failed:", e);
+            console.error("Initial vibrate command failed:", e);
         }
-    });
-    deviceDiv.append("<span>Vibrate: </span>").append(vibrateSlider);
-    const intervalDisplay = $('<div id="intiface-interval-display" style="margin-top: 10px;">Interval: N/A</div>');
-    deviceDiv.append(intervalDisplay);
-    try {
-        device.vibrate(0.5); // Vibrate at 50% intensity when connected
-    } catch (e) {
-        console.error("Initial vibrate command failed:", e);
     }
 
     // Oscillate slider
@@ -359,6 +381,7 @@ async function processMessage() {
     }
 
     // Regex definitions from the old, working version
+    const arrayVibrateRegex = /"VIBRATE"\s*:\s*(\[.*?\])/i;
     const multiVibrateRegex = /"VIBRATE"\s*:\s*({[^}]+})/i;
     const singleVibrateRegex = /"VIBRATE"\s*:\s*(\d+)/i;
     const multiOscillateRegex = /"OSCILLATE"\s*:\s*({[^}]+})/i;
@@ -366,6 +389,7 @@ async function processMessage() {
     const linearRegex = /"LINEAR"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?duration(?:")?\s*:\s*(\d+)\s*}/i;
     const linearSpeedRegex = /"LINEAR_SPEED"\s*:\s*{\s*(?:")?start_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_position(?:")?\s*:\s*(\d+)\s*,\s*(?:")?start_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?end_duration(?:")?\s*:\s*(\d+)\s*,\s*(?:")?steps(?:")?\s*:\s*(\d+)\s*}/i;
 
+    const arrayVibrateMatch = messageText.match(arrayVibrateRegex);
     const multiVibrateMatch = messageText.match(multiVibrateRegex);
     const singleVibrateMatch = messageText.match(singleVibrateRegex);
     const multiOscillateMatch = messageText.match(multiOscillateRegex);
@@ -374,7 +398,7 @@ async function processMessage() {
     const linearSpeedMatch = messageText.match(linearSpeedRegex);
 
     // This is the old, working check
-    if (multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
+    if (arrayVibrateMatch || multiVibrateMatch || singleVibrateMatch || linearMatch || linearSpeedMatch || multiOscillateMatch || singleOscillateMatch) {
         lastProcessedMessage = messageText;
     } else {
         return; // Not a command message, do nothing.
@@ -383,7 +407,27 @@ async function processMessage() {
     stopActions();
 
     // OLD, WORKING if/else if structure
-    if (multiVibrateMatch && multiVibrateMatch[1]) {
+    if (arrayVibrateMatch && arrayVibrateMatch[1]) {
+        try {
+            const speeds = JSON.parse(arrayVibrateMatch[1]);
+            if (Array.isArray(speeds)) {
+                const normalizedSpeeds = speeds.map(s => {
+                    const intensity = parseInt(s, 10);
+                    return isNaN(intensity) ? 0 : Math.max(0, Math.min(100, intensity));
+                });
+
+                // Update sliders on UI
+                normalizedSpeeds.forEach((speed, index) => {
+                    $(`#vibrate-slider-${index}`).val(speed);
+                });
+
+                await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                updateStatus(`Vibrating with pattern: [${normalizedSpeeds.join(', ')}]%`);
+            }
+        } catch (e) {
+            console.error("Could not parse array VIBRATE command.", e);
+        }
+    } else if (multiVibrateMatch && multiVibrateMatch[1]) {
         try {
             const command = JSON.parse(multiVibrateMatch[1]);
             if (command.pattern && Array.isArray(command.pattern) && command.interval) {
@@ -406,11 +450,30 @@ async function processMessage() {
                             return;
                         }
                     }
-                    const intensity = pattern[patternIndex];
-                    if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-                        $("#vibrate-slider").val(intensity);
-                        await device.vibrate(intensity / 100);
-                        updateStatus(`Vibrating at ${intensity}% (Pattern)`);
+                    const patternStep = pattern[patternIndex];
+                    if (Array.isArray(patternStep)) {
+                        // It's an array of speeds for multiple motors
+                        const normalizedSpeeds = patternStep.map(s => {
+                            const intensity = parseInt(s, 10);
+                            return isNaN(intensity) ? 0 : Math.max(0, Math.min(100, intensity));
+                        });
+
+                        // Update sliders on UI
+                        normalizedSpeeds.forEach((speed, index) => {
+                            $(`#vibrate-slider-${index}`).val(speed);
+                        });
+
+                        await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                        updateStatus(`Vibrating with pattern: [${normalizedSpeeds.join(', ')}]%`);
+
+                    } else {
+                        // It's a single intensity for all motors (backward compatibility)
+                        const intensity = patternStep;
+                        if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
+                            $(".vibrate-slider").val(intensity);
+                            await device.vibrate(intensity / 100);
+                            updateStatus(`Vibrating at ${intensity}% (Pattern)`);
+                        }
                     }
                     const currentInterval = intervals[patternIndex % intervals.length];
                     $("#intiface-interval-display").text(`Interval: ${currentInterval}ms`);
@@ -426,7 +489,7 @@ async function processMessage() {
     } else if (singleVibrateMatch && singleVibrateMatch[1]) {
         const intensity = parseInt(singleVibrateMatch[1], 10);
         if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-            $("#vibrate-slider").val(intensity);
+            $(".vibrate-slider").val(intensity);
             try {
                 await device.vibrate(intensity / 100);
                 updateStatus(`Vibrating at ${intensity}%`);
