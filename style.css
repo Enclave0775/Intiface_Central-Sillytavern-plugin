@@ -48,23 +48,3 @@
 #intiface-rescan-button i {
     margin-right: 5px;
 }
-
-/* Connect Button (Default State) */
-#intiface-connect-action-button.connect-button {
-    color: #4CAF50; /* Green */
-}
-
-/* Disconnect Button */
-#intiface-connect-action-button.disconnect-button {
-    color: #f44336; /* Red */
-}
-
-/* Scan Button */
-#intiface-scan-button {
-    color: #ff9800; /* Orange */
-}
-
-/* Rescan Button */
-#intiface-rescan-button {
-    color: #2196F3; /* Blue */
-}
