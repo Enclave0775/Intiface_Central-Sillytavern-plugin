@@ -140,8 +140,8 @@ async function handleDeviceAdded(newDevice) {
         deviceDiv.append(intervalDisplay);
 
         try {
-            // Vibrate all motors at 50% intensity when connected
-            const initialSpeeds = new Array(vibrateAttributes.length).fill(0.5);
+            // Vibrate all motors at 30% intensity when connected
+            const initialSpeeds = new Array(vibrateAttributes.length).fill(0.3);
             const command = initialSpeeds.length === 1 ? initialSpeeds[0] : initialSpeeds;
             await device.vibrate(command);
         } catch (e) {
