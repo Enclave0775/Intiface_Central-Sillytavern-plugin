@@ -473,7 +473,17 @@ async function processMessage() {
                             $(`#vibrate-slider-${index}`).val(speed);
                         });
 
-                        await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                        const vibrateAttributes = device.vibrateAttributes;
+                        if (vibrateAttributes && vibrateAttributes.length >= normalizedSpeeds.length) {
+                            const scalarCommands = normalizedSpeeds.map((speed, index) => {
+                                // @ts-ignore
+                                return new buttplug.ScalarSubcommand(vibrateAttributes[index].Index, speed / 100, "Vibrate");
+                            });
+                            await device.scalar(scalarCommands);
+                        } else {
+                            // Fallback to the original method if something is off
+                            await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                        }
                         updateStatus(`Vibrating with pattern: [${normalizedSpeeds.join(', ')}]%`);
 
                     } else {
