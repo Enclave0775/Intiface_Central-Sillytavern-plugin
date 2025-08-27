@@ -636,6 +636,10 @@ function loadScript(url) {
 
 $(async () => {
     try {
+        if (!localStorage.getItem('intifaceDisclaimerShown')) {
+            alert("本插件為免費插件，如果你是付費購買的，請立即要求退款。\n對於插件有問題可聯絡提問\n\nThis is a free plugin. If you paid for it, please request a refund immediately.\nIf you have any questions about the plugin, you can contact the author.");
+            localStorage.setItem('intifaceDisclaimerShown', 'true');
+        }
         await loadScript(`/scripts/extensions/third-party/${extensionName}/lib/buttplug.js`);
         // @ts-ignore
         buttplug = window.buttplug;
