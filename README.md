@@ -143,9 +143,3 @@ In the example above, the device will:
     *   Every stroke in this segment will take 1200ms.
     *   This segment will repeat `5` times.
 3.  Because `"repeat": true` is present, after Segment 2 is finished, the device will automatically go back to Segment 1 and start the entire pattern over again.
-
-**Error Handling:**
-
-If a segment fails because the connected device does not support the `Linear` command, the extension will log the error and automatically skip to the next segment in the sequence.
-
-The extension will automatically detect these commands and control the device accordingly.
