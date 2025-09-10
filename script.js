@@ -52,6 +52,10 @@ function updateButtonStates(isConnected) {
 
 async function connect() {
     try {
+        const serverIp = $("#intiface-ip-input").val();
+        const serverUrl = `ws://${serverIp}`;
+        localStorage.setItem("intiface-server-ip", serverIp); // Save on connect
+        connector = new buttplug.ButtplugBrowserWebsocketClientConnector(serverUrl);
         updateStatus("Connecting...");
         await client.connect(connector);
         updateStatus("Connected");
@@ -664,7 +668,9 @@ $(async () => {
         // @ts-ignore
         buttplug = window.buttplug;
         client = new buttplug.ButtplugClient("SillyTavern Intiface Client");
-        connector = new buttplug.ButtplugBrowserWebsocketClientConnector("ws://127.0.0.1:12345");
+        
+        // Connector is now created dynamically in connect()
+        // connector = new buttplug.ButtplugBrowserWebsocketClientConnector("ws://127.0.0.1:12345");
 
         client.on("deviceadded", handleDeviceAdded);
         client.on("deviceremoved", handleDeviceRemoved);
@@ -677,6 +683,17 @@ $(async () => {
         $("#intiface-connect-action-button").on("click", toggleConnection);
         $("#intiface-scan-button").on("click", startScanning);
         $("#intiface-rescan-button").on("click", rescanLastMessage);
+
+        // Load saved IP address
+        const savedIp = localStorage.getItem("intiface-server-ip");
+        if (savedIp) {
+            $("#intiface-ip-input").val(savedIp);
+        }
+
+        // Save IP on change
+        $("#intiface-ip-input").on("input", function() {
+            localStorage.setItem("intiface-server-ip", $(this).val());
+        });
 
         updateButtonStates(client.connected);
         updateStatus("Disconnected");
