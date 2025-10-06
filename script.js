@@ -132,9 +132,16 @@ async function handleDeviceAdded(newDevice) {
                 speeds.push($(this).val() / 100);
             });
             try {
-                // If only one motor, send a number. Otherwise, send an array.
-                const command = speeds.length === 1 ? speeds[0] : speeds;
-                await device.vibrate(command);
+                // Asynchronous execution with a delay
+                if (vibrateAttributes && vibrateAttributes.length > 0) {
+                    for (let i = 0; i < speeds.length; i++) {
+                        const speed = speeds[i];
+                        // @ts-ignore
+                        const scalarCommand = new buttplug.ScalarSubcommand(vibrateAttributes[i].Index, speed, "Vibrate");
+                        await device.scalar(scalarCommand);
+                        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                    }
+                }
             } catch (e) {
                 console.error("Vibrate command failed:", e);
             }
@@ -144,10 +151,17 @@ async function handleDeviceAdded(newDevice) {
         deviceDiv.append(intervalDisplay);
 
         try {
-            // Vibrate all motors at 30% intensity when connected
+            // Vibrate all motors at 30% intensity when connected (sequentially)
             const initialSpeeds = new Array(vibrateAttributes.length).fill(0.3);
-            const command = initialSpeeds.length === 1 ? initialSpeeds[0] : initialSpeeds;
-            await device.vibrate(command);
+            if (vibrateAttributes && vibrateAttributes.length > 0) {
+                for (let i = 0; i < initialSpeeds.length; i++) {
+                    const speed = initialSpeeds[i];
+                    // @ts-ignore
+                    const scalarCommand = new buttplug.ScalarSubcommand(vibrateAttributes[i].Index, speed, "Vibrate");
+                    await device.scalar(scalarCommand);
+                    await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                }
+            }
         } catch (e) {
             console.error("Initial vibrate command failed:", e);
         }
@@ -427,14 +441,21 @@ async function processMessage() {
 
                 const vibrateAttributes = device.vibrateAttributes;
                 if (vibrateAttributes && vibrateAttributes.length >= normalizedSpeeds.length) {
-                    const scalarCommands = normalizedSpeeds.map((speed, index) => {
+                    // Asynchronous execution with a delay
+                    for (let i = 0; i < normalizedSpeeds.length; i++) {
+                        const speed = normalizedSpeeds[i];
                         // @ts-ignore
-                        return new buttplug.ScalarSubcommand(vibrateAttributes[index].Index, speed / 100, "Vibrate");
-                    });
-                    await device.scalar(scalarCommands);
+                        const scalarCommand = new buttplug.ScalarSubcommand(vibrateAttributes[i].Index, speed / 100, "Vibrate");
+                        await device.scalar(scalarCommand);
+                        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                    }
                 } else {
-                    // Fallback to the original method if something is off
-                    await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                    // Fallback to the original method if something is off, also async
+                    const speeds = normalizedSpeeds.map(s => s / 100);
+                    for (const speed of speeds) {
+                        await device.vibrate(speed);
+                        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                    }
                 }
                 updateStatus(`Vibrating with pattern: [${normalizedSpeeds.join(', ')}]%`);
             }
@@ -479,14 +500,21 @@ async function processMessage() {
 
                         const vibrateAttributes = device.vibrateAttributes;
                         if (vibrateAttributes && vibrateAttributes.length >= normalizedSpeeds.length) {
-                            const scalarCommands = normalizedSpeeds.map((speed, index) => {
+                            // Asynchronous execution with a delay
+                            for (let i = 0; i < normalizedSpeeds.length; i++) {
+                                const speed = normalizedSpeeds[i];
                                 // @ts-ignore
-                                return new buttplug.ScalarSubcommand(vibrateAttributes[index].Index, speed / 100, "Vibrate");
-                            });
-                            await device.scalar(scalarCommands);
+                                const scalarCommand = new buttplug.ScalarSubcommand(vibrateAttributes[i].Index, speed / 100, "Vibrate");
+                                await device.scalar(scalarCommand);
+                                await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                            }
                         } else {
-                            // Fallback to the original method if something is off
-                            await device.vibrate(normalizedSpeeds.map(s => s / 100));
+                            // Fallback to the original method if something is off, also async
+                            const speeds = normalizedSpeeds.map(s => s / 100);
+                            for (const speed of speeds) {
+                                await device.vibrate(speed);
+                                await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+                            }
                         }
                         updateStatus(`Vibrating with pattern: [${normalizedSpeeds.join(', ')}]%`);
 
