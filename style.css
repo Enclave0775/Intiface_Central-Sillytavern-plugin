@@ -30,21 +30,28 @@
 
 #intiface-connect-action-button,
 #intiface-scan-button,
-#intiface-rescan-button {
+#intiface-rescan-button,
+#intiface-start-timer-button,
+#intiface-pause-timer-button {
     transition: color 0.3s ease, opacity 0.3s ease;
     background-color: transparent !important;
     border: none !important;
     padding: 5px !important;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 #intiface-connect-action-button:hover,
 #intiface-scan-button:hover,
-#intiface-rescan-button:hover {
+#intiface-rescan-button:hover,
+#intiface-start-timer-button:hover,
+#intiface-pause-timer-button:hover {
     opacity: 0.7;
 }
 
 #intiface-connect-action-button i,
 #intiface-scan-button i,
-#intiface-rescan-button i {
+#intiface-rescan-button i,
+#intiface-start-timer-button i,
+#intiface-pause-timer-button i {
     margin-right: 5px;
 }
