@@ -14,12 +14,18 @@
         <div id="intiface-status-panel" class="intiface-status disconnected">
             Status: Disconnected
         </div>
+        <div id="intiface-countdown-panel" style="display: none; margin-top: 5px;"></div>
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
             <input type="text" id="intiface-ip-input" class="text_pole" value="127.0.0.1:12345" placeholder="127.0.0.1:12345" style="flex-grow: 1;">
         </div>
+        <div class="flex-container alignitemscenter" style="margin-top: 10px;">
+            <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (分鐘):</label>
+            <input type="number" id="intiface-timer-input" class="text_pole" min="0" placeholder="0" style="flex-grow: 1;">
+        </div>
         <div class="flex-container alignitemscenter" style="margin-top: 10px; gap: 10px;">
             <div id="intiface-connect-action-button" class="menu_button">Connect</div>
-            <div id="intiface-scan-button" class="menu_button" style="display: none;">Start Scanning</div>
+            <div id="intiface-start-timer-button" class="menu_button" style="display: none;">開始計時</div>
+            <div id="intiface-pause-timer-button" class="menu_button" style="display: none;">暫停計時</div>
         </div>
         <div id="intiface-devices" style="margin-top: 10px;"></div>
         <div class="intiface-disclaimer" style="margin-top: 15px; padding: 10px; border-top: 1px solid #ccc;">
