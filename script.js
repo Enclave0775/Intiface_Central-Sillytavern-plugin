@@ -14,6 +14,11 @@ let client;
 let connector;
 let device;
 let intervalId;
+let disconnectTimerId = null;
+let countdownIntervalId = null;
+let isTimerPaused = false;
+let remainingTimeOnPause = 0;
+let disconnectTime = 0;
 
 function clickHandlerHack() {
     try {
@@ -45,8 +50,8 @@ function updateButtonStates(isConnected) {
     } else {
         connectButton.html('<i class="fa-solid fa-power-off"></i> Connect').removeClass('disconnect-button').addClass('connect-button');
     }
-    $("#intiface-scan-button").toggle(isConnected);
     $("#intiface-rescan-button").toggle(isConnected);
+    $("#intiface-start-timer-button").toggle(isConnected);
     $("#intiface-connect-button .drawer-icon").toggleClass("flashing-icon", isConnected);
 }
 
@@ -69,6 +74,19 @@ async function connect() {
 
 async function disconnect() {
     try {
+        if (disconnectTimerId) {
+            clearTimeout(disconnectTimerId);
+            disconnectTimerId = null;
+        }
+        if (countdownIntervalId) {
+            clearInterval(countdownIntervalId);
+            countdownIntervalId = null;
+        }
+        $("#intiface-countdown-panel").hide().text("");
+        $("#intiface-pause-timer-button").hide();
+        isTimerPaused = false;
+        remainingTimeOnPause = 0;
+        disconnectTime = 0;
         await client.disconnect();
         updateStatus("Disconnected");
         $("#intiface-status-panel").removeClass("connected").addClass("disconnected");
@@ -96,12 +114,101 @@ async function disconnect() {
     }
 }
 
-async function startScanning() {
-    try {
-        updateStatus("Scanning for devices...");
-        await client.startScanning();
-    } catch (e) {
-        updateStatus(`Error scanning: ${e.message}`, true);
+function startTimer() {
+    if (!client.connected) {
+        updateStatus("Not connected. Cannot start timer.", true);
+        return;
+    }
+
+    const timerMinutes = parseInt($("#intiface-timer-input").val(), 10);
+    if (!isNaN(timerMinutes) && timerMinutes > 0) {
+        const timerMilliseconds = timerMinutes * 60 * 1000;
+        updateStatus(`Timer started. Disconnecting in ${timerMinutes} minutes.`);
+
+        isTimerPaused = false;
+        remainingTimeOnPause = 0;
+        $("#intiface-pause-timer-button").text("暫停計時").show();
+
+        disconnectTime = Date.now() + timerMilliseconds;
+
+        if (disconnectTimerId) {
+            clearTimeout(disconnectTimerId);
+        }
+        disconnectTimerId = setTimeout(() => {
+            console.log("Timer expired. Disconnecting...");
+            disconnect();
+        }, timerMilliseconds);
+
+        const countdownPanel = $("#intiface-countdown-panel");
+
+        if (countdownIntervalId) {
+            clearInterval(countdownIntervalId);
+        }
+
+        countdownIntervalId = setInterval(() => {
+            const remaining = disconnectTime - Date.now();
+            if (remaining <= 0) {
+                clearInterval(countdownIntervalId);
+                countdownIntervalId = null;
+                countdownPanel.hide();
+                $("#intiface-pause-timer-button").hide();
+                return;
+            }
+            const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24).toString().padStart(2, '0');
+            const minutes = Math.floor((remaining / 1000 / 60) % 60).toString().padStart(2, '0');
+            const seconds = Math.floor((remaining / 1000) % 60).toString().padStart(2, '0');
+            countdownPanel.text(`自動斷開倒數計時: ${hours}:${minutes}:${seconds}`).show();
+        }, 1000);
+    } else {
+        updateStatus("Please enter a valid time in minutes.", true);
+    }
+}
+
+function togglePauseTimer() {
+    const pauseButton = $("#intiface-pause-timer-button");
+    if (isTimerPaused) {
+        // Resume
+        isTimerPaused = false;
+        pauseButton.text("暫停計時");
+        updateStatus("Timer resumed.");
+
+        disconnectTime = Date.now() + remainingTimeOnPause;
+
+        if (disconnectTimerId) {
+            clearTimeout(disconnectTimerId);
+        }
+        disconnectTimerId = setTimeout(() => {
+            console.log("Timer expired. Disconnecting...");
+            disconnect();
+        }, remainingTimeOnPause);
+
+        if (countdownIntervalId) {
+            clearInterval(countdownIntervalId);
+        }
+        countdownIntervalId = setInterval(() => {
+            const remaining = disconnectTime - Date.now();
+            if (remaining <= 0) {
+                clearInterval(countdownIntervalId);
+                countdownIntervalId = null;
+                $("#intiface-countdown-panel").hide();
+                $("#intiface-pause-timer-button").hide();
+                return;
+            }
+            const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24).toString().padStart(2, '0');
+            const minutes = Math.floor((remaining / 1000 / 60) % 60).toString().padStart(2, '0');
+            const seconds = Math.floor((remaining / 1000) % 60).toString().padStart(2, '0');
+            $("#intiface-countdown-panel").text(`自動斷開倒數計時: ${hours}:${minutes}:${seconds}`).show();
+        }, 1000);
+
+    } else {
+        // Pause
+        isTimerPaused = true;
+        pauseButton.text("繼續計時");
+        updateStatus("Timer paused.");
+
+        clearTimeout(disconnectTimerId);
+        clearInterval(countdownIntervalId);
+        remainingTimeOnPause = disconnectTime - Date.now();
     }
 }
 
@@ -709,7 +816,8 @@ $(async () => {
         clickHandlerHack();
 
         $("#intiface-connect-action-button").on("click", toggleConnection);
-        $("#intiface-scan-button").on("click", startScanning);
+        $("#intiface-start-timer-button").on("click", startTimer);
+        $("#intiface-pause-timer-button").on("click", togglePauseTimer);
         $("#intiface-rescan-button").on("click", rescanLastMessage);
 
         // Load saved IP address
