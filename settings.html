@@ -18,16 +18,20 @@
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
             <input type="text" id="intiface-ip-input" class="text_pole" value="127.0.0.1:12345" placeholder="127.0.0.1:12345" style="flex-grow: 1;">
         </div>
-        <!-- Added max value controls for Vibrate and Oscillate -->
+        <!-- Separate max value controls for Vibrate Motor 1 and Motor 2 -->
         <div class="flex-container alignitemscenter" style="margin-top: 10px; gap: 10px;">
             <div style="flex: 1;">
-                <label for="intiface-max-vibrate-input" style="display: block; margin-bottom: 5px;">最大震動值 (Max Vibrate):</label>
-                <input type="number" id="intiface-max-vibrate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
+                <label for="intiface-max-vibrate-1-input" style="display: block; margin-bottom: 5px;">最大震動值 1 (Max Vibrate 1):</label>
+                <input type="number" id="intiface-max-vibrate-1-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
             </div>
             <div style="flex: 1;">
-                <label for="intiface-max-oscillate-input" style="display: block; margin-bottom: 5px;">最大擺動值 (Max Oscillate):</label>
-                <input type="number" id="intiface-max-oscillate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
+                <label for="intiface-max-vibrate-2-input" style="display: block; margin-bottom: 5px;">最大震動值 2 (Max Vibrate 2):</label>
+                <input type="number" id="intiface-max-vibrate-2-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
             </div>
+        </div>
+        <div class="flex-container alignitemscenter" style="margin-top: 10px;">
+            <label for="intiface-max-oscillate-input" style="margin-right: 10px;">最大擺動值 (Max Oscillate):</label>
+            <input type="number" id="intiface-max-oscillate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="flex-grow: 1;">
         </div>
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
             <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (分鐘):</label>
