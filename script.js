@@ -20,8 +20,9 @@ let isTimerPaused = false
 let remainingTimeOnPause = 0
 let disconnectTime = 0
 
-function getMaxVibrate() {
-  const maxValue = Number.parseInt($("#intiface-max-vibrate-input").val(), 10)
+function getMaxVibrate(motorIndex) {
+  const inputId = motorIndex === 0 ? "#intiface-max-vibrate-1-input" : "#intiface-max-vibrate-2-input"
+  const maxValue = Number.parseInt($(inputId).val(), 10)
   return isNaN(maxValue) ? 100 : Math.max(0, Math.min(100, maxValue))
 }
 
@@ -30,8 +31,8 @@ function getMaxOscillate() {
   return isNaN(maxValue) ? 100 : Math.max(0, Math.min(100, maxValue))
 }
 
-function applyMaxVibrate(value) {
-  const maxVibrate = getMaxVibrate()
+function applyMaxVibrate(value, motorIndex = 0) {
+  const maxVibrate = getMaxVibrate(motorIndex)
   return Math.min(value, maxVibrate)
 }
 
@@ -274,9 +275,9 @@ async function handleDeviceAdded(newDevice) {
     // Shared event handler for all vibrate sliders within this device
     vibrateContainer.on("input", ".vibrate-slider", async () => {
       const speeds = []
-      vibrateContainer.find(".vibrate-slider").each(function () {
+      vibrateContainer.find(".vibrate-slider").each(function (index) {
         const rawValue = $(this).val()
-        const cappedValue = applyMaxVibrate(rawValue)
+        const cappedValue = applyMaxVibrate(rawValue, index)
         speeds.push(cappedValue / 100)
       })
       try {
@@ -593,10 +594,10 @@ async function processMessage() {
     try {
       const speeds = JSON.parse(arrayVibrateMatch[1])
       if (Array.isArray(speeds)) {
-        const normalizedSpeeds = speeds.map((s) => {
+        const normalizedSpeeds = speeds.map((s, index) => {
           const intensity = Number.parseInt(s, 10)
           const clamped = isNaN(intensity) ? 0 : Math.max(0, Math.min(100, intensity))
-          return applyMaxVibrate(clamped)
+          return applyMaxVibrate(clamped, index)
         })
 
         // Update sliders on UI
@@ -653,10 +654,10 @@ async function processMessage() {
           const patternStep = pattern[patternIndex]
           if (Array.isArray(patternStep)) {
             // It's an array of speeds for multiple motors
-            const normalizedSpeeds = patternStep.map((s) => {
+            const normalizedSpeeds = patternStep.map((s, index) => {
               const intensity = Number.parseInt(s, 10)
               const clamped = isNaN(intensity) ? 0 : Math.max(0, Math.min(100, intensity))
-              return applyMaxVibrate(clamped)
+              return applyMaxVibrate(clamped, index)
             })
 
             // Update sliders on UI
@@ -687,7 +688,7 @@ async function processMessage() {
             // It's a single intensity for all motors (backward compatibility)
             const intensity = patternStep
             if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-              const cappedIntensity = applyMaxVibrate(intensity)
+              const cappedIntensity = applyMaxVibrate(intensity, 0)
               $(".vibrate-slider").val(cappedIntensity)
               await device.vibrate(cappedIntensity / 100)
               updateStatus(`Vibrating at ${cappedIntensity}% (Pattern)`)
@@ -707,7 +708,7 @@ async function processMessage() {
   } else if (singleVibrateMatch && singleVibrateMatch[1]) {
     const intensity = Number.parseInt(singleVibrateMatch[1], 10)
     if (!isNaN(intensity) && intensity >= 0 && intensity <= 100) {
-      const cappedIntensity = applyMaxVibrate(intensity)
+      const cappedIntensity = applyMaxVibrate(intensity, 0)
       $(".vibrate-slider").val(cappedIntensity)
       try {
         await device.vibrate(cappedIntensity / 100)
@@ -902,9 +903,15 @@ $(async () => {
       localStorage.setItem("intiface-server-ip", $(this).val())
     })
 
-    const savedMaxVibrate = localStorage.getItem("intiface-max-vibrate")
-    if (savedMaxVibrate) {
-      $("#intiface-max-vibrate-input").val(savedMaxVibrate)
+    // Load saved max vibrate values
+    const savedMaxVibrate1 = localStorage.getItem("intiface-max-vibrate-1")
+    if (savedMaxVibrate1) {
+      $("#intiface-max-vibrate-1-input").val(savedMaxVibrate1)
+    }
+
+    const savedMaxVibrate2 = localStorage.getItem("intiface-max-vibrate-2")
+    if (savedMaxVibrate2) {
+      $("#intiface-max-vibrate-2-input").val(savedMaxVibrate2)
     }
 
     const savedMaxOscillate = localStorage.getItem("intiface-max-oscillate")
@@ -912,8 +919,12 @@ $(async () => {
       $("#intiface-max-oscillate-input").val(savedMaxOscillate)
     }
 
-    $("#intiface-max-vibrate-input").on("input", function () {
-      localStorage.setItem("intiface-max-vibrate", $(this).val())
+    $("#intiface-max-vibrate-1-input").on("input", function () {
+      localStorage.setItem("intiface-max-vibrate-1", $(this).val())
+    })
+
+    $("#intiface-max-vibrate-2-input").on("input", function () {
+      localStorage.setItem("intiface-max-vibrate-2", $(this).val())
     })
 
     $("#intiface-max-oscillate-input").on("input", function () {
