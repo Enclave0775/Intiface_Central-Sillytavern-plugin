@@ -55,3 +55,35 @@
 #intiface-pause-timer-button i {
     margin-right: 5px;
 }
+
+:root {
+    --intiface-command-color: rgba(255, 105, 180, 0.6);
+    --intiface-reading-color: rgba(255, 255, 0, 0.3);
+}
+
+/* Fallback for browsers without Highlight API */
+.intiface-command-highlight {
+    background-color: var(--intiface-command-color);
+    border-radius: 3px;
+    transition: background-color 0.5s ease-out;
+}
+
+/* CSS Custom Highlight API */
+::highlight(intiface-command) {
+    background-color: var(--intiface-command-color);
+    color: white;
+}
+
+::highlight(intiface-reading) {
+    background-color: var(--intiface-reading-color);
+}
+
+/* Ensure toolcool-color-picker is visible */
+#intiface-reading-color-picker, #intiface-command-color-picker {
+    --tool-cool-color-picker-btn-bg: #888888;
+    --tool-cool-color-picker-btn-border-color: #cccccc;
+    --tool-cool-color-picker-btn-border-radius: 5px;
+    --tool-cool-color-picker-btn-width: 2rem;
+    --tool-cool-color-picker-btn-height: 1.5rem;
+    margin-right: 10px;
+}

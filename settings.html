@@ -18,25 +18,67 @@
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
             <input type="text" id="intiface-ip-input" class="text_pole" value="127.0.0.1:12345" placeholder="127.0.0.1:12345" style="flex-grow: 1;">
         </div>
-        <!-- Separate max value controls for Vibrate Motor 1 and Motor 2 -->
-        <div class="flex-container alignitemscenter" style="margin-top: 10px; gap: 10px;">
-            <div style="flex: 1;">
-                <label for="intiface-max-vibrate-1-input" style="display: block; margin-bottom: 5px;">最大震動值 1 (Max Vibrate 1):</label>
-                <input type="number" id="intiface-max-vibrate-1-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
-            </div>
-            <div style="flex: 1;">
-                <label for="intiface-max-vibrate-2-input" style="display: block; margin-bottom: 5px;">最大震動值 2 (Max Vibrate 2):</label>
-                <input type="number" id="intiface-max-vibrate-2-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
-            </div>
-        </div>
+        
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
-            <label for="intiface-max-oscillate-input" style="margin-right: 10px;">最大擺動值 (Max Oscillate):</label>
-            <input type="number" id="intiface-max-oscillate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="flex-grow: 1;">
+            <label class="checkbox_label">
+                <input type="checkbox" id="intiface-loop-pattern-checkbox">
+                循環執行指令 (Loop Message Patterns)
+            </label>
         </div>
+        <div id="intiface-loop-interval-container" class="flex-container alignitemscenter" style="margin-top: 5px; margin-left: 20px; display: none;">
+             <label for="intiface-loop-interval-input" style="margin-right: 10px;">循環間隔 (毫秒/ms):</label>
+             <input type="number" id="intiface-loop-interval-input" class="text_pole" min="0" value="1000" placeholder="1000" style="width: 80px;">
+        </div>
+
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
-            <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (分鐘):</label>
-            <input type="number" id="intiface-timer-input" class="text_pole" min="0" placeholder="0" style="flex-grow: 1;">
+             <label for="intiface-reading-speed-input" style="margin-right: 10px;">閱讀速度 (字/秒):</label>
+             <input type="number" id="intiface-reading-speed-input" class="text_pole" min="1" value="20" placeholder="20" style="width: 80px;">
         </div>
+
+        <div class="flex-container alignitemscenter" style="margin-top: 5px;">
+            <label class="checkbox_label">
+                <input type="checkbox" id="intiface-dev-mode-checkbox">
+                開發者模式 (顯示所有控制項)
+            </label>
+        </div>
+
+        <details style="margin-top: 10px; background-color: rgba(0, 0, 0, 0.1); border-radius: 5px; padding: 5px;">
+            <summary style="cursor: pointer; user-select: none; font-weight: bold; padding: 5px;">[設置]</summary>
+            
+            <div style="padding: 10px;">
+                 <!-- Colors -->
+                 <div class="flex-container alignitemscenter" style="margin-bottom: 15px;">
+                     <div style="flex: 1; display: flex; align-items: center;">
+                         <div id="intiface-reading-color-picker-container"></div>
+                         <span style="margin-left: 10px;">閱讀高亮</span>
+                     </div>
+                     <div style="flex: 1; display: flex; align-items: center;">
+                         <div id="intiface-command-color-picker-container"></div>
+                         <span style="margin-left: 10px;">指令高亮</span>
+                     </div>
+                 </div>
+
+                <!-- Separate max value controls for Vibrate Motor 1 and Motor 2 -->
+                <div class="flex-container alignitemscenter" style="margin-top: 10px; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label for="intiface-max-vibrate-1-input" style="display: block; margin-bottom: 5px;">最大震動值 1 (Max Vibrate 1):</label>
+                        <input type="number" id="intiface-max-vibrate-1-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="intiface-max-vibrate-2-input" style="display: block; margin-bottom: 5px;">最大震動值 2 (Max Vibrate 2):</label>
+                        <input type="number" id="intiface-max-vibrate-2-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="width: 100%;">
+                    </div>
+                </div>
+                <div class="flex-container alignitemscenter" style="margin-top: 10px;">
+                    <label for="intiface-max-oscillate-input" style="margin-right: 10px;">最大擺動值 (Max Oscillate):</label>
+                    <input type="number" id="intiface-max-oscillate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="flex-grow: 1;">
+                </div>
+                <div class="flex-container alignitemscenter" style="margin-top: 10px;">
+                    <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (分鐘):</label>
+                    <input type="number" id="intiface-timer-input" class="text_pole" min="0" placeholder="0" style="flex-grow: 1;">
+                </div>
+            </div>
+        </details>
         <div class="flex-container alignitemscenter" style="margin-top: 10px; gap: 10px;">
             <div id="intiface-connect-action-button" class="menu_button">Connect</div>
             <div id="intiface-start-timer-button" class="menu_button" style="display: none;">開始計時</div>
