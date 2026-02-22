@@ -96,7 +96,10 @@ function updateButtonStates(isConnected) {
   }
   $("#intiface-rescan-button").toggle(isConnected)
   $("#intiface-start-timer-button").toggle(isConnected)
-  $("#intiface-connect-button .drawer-icon").toggleClass("flashing-icon", isConnected)
+  
+  const isStatic = $("#intiface-static-icon-checkbox").is(":checked");
+  const shouldFlash = isConnected && !isStatic;
+  $("#intiface-connect-button .drawer-icon").toggleClass("flashing-icon", shouldFlash)
 }
 
 function initializeClient() {
@@ -1388,6 +1391,24 @@ $(async () => {
         }
     });
 
+    // Detection Source setting
+    const savedDetectionSource = localStorage.getItem("intiface-detection-source");
+    if (savedDetectionSource) {
+        $("#intiface-detection-source").val(savedDetectionSource);
+    }
+    $("#intiface-detection-source").on("change", function() {
+        localStorage.setItem("intiface-detection-source", $(this).val());
+    });
+
+    // Detection Target setting
+    const savedDetectionTarget = localStorage.getItem("intiface-detection-target");
+    if (savedDetectionTarget) {
+        $("#intiface-detection-target").val(savedDetectionTarget);
+    }
+    $("#intiface-detection-target").on("change", function() {
+        localStorage.setItem("intiface-detection-target", $(this).val());
+    });
+
     // Dev Mode setting
     const savedDevMode = localStorage.getItem("intiface-dev-mode") === "true";
     $("#intiface-dev-mode-checkbox").prop("checked", savedDevMode);
@@ -1397,6 +1418,18 @@ $(async () => {
         // Refresh UI if connected
         if (client && client.connected && device) {
             handleDeviceAdded(device);
+        }
+    });
+
+    // Static Icon setting
+    const savedStaticIcon = localStorage.getItem("intiface-static-icon") === "true";
+    $("#intiface-static-icon-checkbox").prop("checked", savedStaticIcon);
+    $("#intiface-static-icon-checkbox").on("change", function() {
+        const isChecked = $(this).is(":checked");
+        localStorage.setItem("intiface-static-icon", isChecked);
+        // Refresh button state if connected
+        if (client) {
+             updateButtonStates(client.connected);
         }
     });
 
