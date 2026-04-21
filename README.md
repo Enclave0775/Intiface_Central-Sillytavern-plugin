@@ -14,7 +14,9 @@ This is an extension for SillyTavern that allows you to connect and control Inti
     *   **Reading Highlight (Yellow):** A "karaoke-style" highlight scans through the text to visualize the simulated reading progress.
     *   **Command Highlight (Pink):** When a command is triggered, it lights up in pink to indicate activation.
     *   *Colors are customizable in settings.*
-*   **Loop Mode:** Optionally loop the commands in the last message indefinitely with a customizable delay interval.
+*   **Loop Modes:**
+    *   **Full Playlist (Default):** Loops the sequence starting from the message you click play on until the end of the loaded messages, then restarts from the beginning.
+    *   **Last Message Only:** Continuously repeats the final message.
 *   **Smart UI:** The control panel automatically hides unsupported features (like Linear controls on a Vibrator) unless "Developer Mode" is enabled.
 
 ## Installation
@@ -34,7 +36,9 @@ This is an extension for SillyTavern that allows you to connect and control Inti
     *   Click the **Connect** button. The status should change to "Connected".
     *   The extension will automatically scan for and list connected devices.
 4.  **Settings:**
-    *   **Loop Message Patterns:** Check this to repeat the commands in the current message after they finish.
+    *   **Loop Patterns:** Check this to repeat the commands in messages. Unchecking this stops the loop. (Note: Manually pausing a device also unchecks this).
+        *   **Full Playlist:** Loops from the active message to the end, then restarts.
+        *   **Last Message Only:** Repeats only the final message.
     *   **Loop Interval:** Set the delay (in ms) between loops.
     *   **Reading Speed:** Set the speed (chars/second) for the reading highlight simulation. Default is 20.
     *   **Developer Mode:** Check this to show all control sliders regardless of device capabilities.
