@@ -32,6 +32,7 @@ let lastCommandIndex = 0;
 // Variables for playlist and looping
 let messagePlaylist = [];
 let currentPlaylistIndex = -1;
+let customPlaylistStartElement = null;
 let currentMessageMatches = [];
 let currentMessageElement = null;
 let isPatternsPaused = false;
@@ -633,6 +634,28 @@ function startPlaylistFromElement(element) {
     }
 }
 
+function startPlaylistRange(startElement, endElement) {
+    resetQueueState();
+    
+    const chatContainer = document.querySelector('#chat');
+    const allMessages = Array.from(chatContainer.querySelectorAll('.mes'));
+    const startIndex = allMessages.indexOf(startElement);
+    const endIndex = allMessages.indexOf(endElement);
+    
+    if (startIndex !== -1 && endIndex !== -1) {
+        const actualStart = Math.min(startIndex, endIndex);
+        const actualEnd = Math.max(startIndex, endIndex);
+        messagePlaylist = allMessages.slice(actualStart, actualEnd + 1);
+        currentPlaylistIndex = 0;
+        processCurrentPlaylistMessage();
+    } else if (endIndex !== -1) {
+        // Fallback if start element was lost from DOM
+        messagePlaylist = allMessages.slice(endIndex, endIndex + 1);
+        currentPlaylistIndex = 0;
+        processCurrentPlaylistMessage();
+    }
+}
+
 function processCurrentPlaylistMessage() {
     if (currentPlaylistIndex === -1) return; // aborted
     
@@ -721,6 +744,10 @@ async function moveToNextInPlaylist() {
             return;
         }
     }
+
+    // CRITICAL FIX: Clear executed commands memory when moving to the next message!
+    // Otherwise identical identical messages will have their commands ignored.
+    executedCommands.clear();
 
     currentPlaylistIndex++;
     processCurrentPlaylistMessage();
@@ -1530,7 +1557,7 @@ function initObserver() {
             if (buttonsContainer && !buttonsContainer.querySelector('.intiface-play-msg-btn')) {
                 const playBtn = document.createElement('div');
                 playBtn.className = 'mes_button intiface-play-msg-btn';
-                playBtn.title = 'Play Intiface from here';
+                playBtn.title = 'Play Intiface from here to end';
                 playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
                 playBtn.style.cursor = 'pointer';
                 playBtn.style.opacity = '0.5';
@@ -1542,9 +1569,69 @@ function initObserver() {
                     e.stopPropagation();
                     startPlaylistFromElement(mes);
                 });
+
+                const startBtn = document.createElement('div');
+                startBtn.className = 'mes_button intiface-start-range-btn';
+                startBtn.title = 'Set Intiface Playlist Start';
+                startBtn.innerHTML = '<i class="fa-solid fa-flag"></i>';
+                startBtn.style.cursor = 'pointer';
                 
-                // Add to the beginning of the buttons
+                if (customPlaylistStartElement === mes) {
+                    startBtn.style.color = 'var(--intiface-command-color, #ff69b4)';
+                    startBtn.style.opacity = '1';
+                } else {
+                    startBtn.style.opacity = '0.5';
+                }
+                
+                startBtn.addEventListener('mouseenter', () => startBtn.style.opacity = '1');
+                startBtn.addEventListener('mouseleave', () => {
+                    if (customPlaylistStartElement !== mes) {
+                        startBtn.style.opacity = '0.5';
+                    }
+                });
+                
+                startBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.intiface-start-range-btn').forEach(btn => {
+                        // @ts-ignore
+                        btn.style.color = '';
+                        // @ts-ignore
+                        btn.style.opacity = '0.5';
+                    });
+                    
+                    if (customPlaylistStartElement === mes) {
+                        customPlaylistStartElement = null;
+                    } else {
+                        customPlaylistStartElement = mes;
+                        startBtn.style.color = 'var(--intiface-command-color, #ff69b4)';
+                        startBtn.style.opacity = '1';
+                    }
+                });
+
+                const playRangeBtn = document.createElement('div');
+                playRangeBtn.className = 'mes_button intiface-play-range-btn';
+                playRangeBtn.title = 'Play Intiface from Start to Here';
+                playRangeBtn.innerHTML = '<i class="fa-solid fa-flag-checkered"></i>';
+                playRangeBtn.style.cursor = 'pointer';
+                playRangeBtn.style.opacity = '0.5';
+                
+                playRangeBtn.addEventListener('mouseenter', () => playRangeBtn.style.opacity = '1');
+                playRangeBtn.addEventListener('mouseleave', () => playRangeBtn.style.opacity = '0.5');
+                
+                playRangeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!customPlaylistStartElement) {
+                        startPlaylistRange(mes, mes);
+                    } else {
+                        startPlaylistRange(customPlaylistStartElement, mes);
+                    }
+                });
+                
+                // Add to the beginning of the buttons in reverse order to appear as:
+                // [Start Flag] [End/Play Flag] [Play to End]
                 buttonsContainer.insertBefore(playBtn, buttonsContainer.firstChild);
+                buttonsContainer.insertBefore(playRangeBtn, buttonsContainer.firstChild);
+                buttonsContainer.insertBefore(startBtn, buttonsContainer.firstChild);
             }
         });
     };
@@ -1555,21 +1642,39 @@ function initObserver() {
         
         injectPlayButtons();
         
+        // If the user manually triggered a custom playlist, DO NOT interrupt it when new text streams in!
+        // The streaming text will still visually update, but we shouldn't hijack currentPlaylistIndex 
+        // if they are actively playing back a previous segment.
+        if (currentPlaylistIndex !== -1 && messagePlaylist.length > 1) {
+            return; // We are in the middle of a multi-message playlist playback, ignore DOM mutations
+        }
+
         const lastMessageDiv = messages[messages.length - 1];
         const textDiv = lastMessageDiv.querySelector('.mes_text');
         
-        // Use text content length to track edits/swipes in the last message
-        const textLength = textDiv ? textDiv.textContent.length : 0;
+        // Determine what to track to know if the message has genuinely changed
+        // We track the index to know if a NEW message started
         const msgIndex = messages.length - 1;
-        const currentMsgId = `msg-${msgIndex}-${textLength}`;
+        const currentMsgId = `msg-${msgIndex}`;
 
         if (currentMsgId !== lastMessageId) {
+            // A completely new message block has appeared!
             lastMessageId = currentMsgId;
-            resetQueueState();
             
+            // Only interrupt if the user isn't in a custom playlist
+            resetQueueState();
             messagePlaylist = [lastMessageDiv];
             currentPlaylistIndex = 0;
             processCurrentPlaylistMessage();
+        } else {
+            // Streaming update: The same message is getting longer.
+            // DO NOT reset queue! Just call processText again to pick up the NEW regex matches.
+            if (currentPlaylistIndex !== -1 && messagePlaylist.length === 1) {
+                const textDiv = messagePlaylist[0].querySelector('.mes_text');
+                if (textDiv) {
+                    processText(textDiv.textContent, textDiv);
+                }
+            }
         }
     });
 

@@ -14,9 +14,10 @@ This is an extension for SillyTavern that allows you to connect and control Inti
     *   **Reading Highlight (Yellow):** A "karaoke-style" highlight scans through the text to visualize the simulated reading progress.
     *   **Command Highlight (Pink):** When a command is triggered, it lights up in pink to indicate activation.
     *   *Colors are customizable in settings.*
-*   **Loop Modes:**
-    *   **Full Playlist (Default):** Loops the sequence starting from the message you click play on until the end of the loaded messages, then restarts from the beginning.
-    *   **Last Message Only:** Continuously repeats the final message.
+*   **Playlist & Loop Modes:**
+    *   **A-B Segment Playback:** Set a "Start Flag" and an "End Flag (Checkered)" next to messages to play only a specific section of the chat.
+    *   **Full Playlist (Default):** Plays through to the end (or the set End Flag) and automatically loops back to the first message (or the Start Flag).
+    *   **Last Message Only:** Continuously repeats only the very last message.
 *   **Smart UI:** The control panel automatically hides unsupported features (like Linear controls on a Vibrator) unless "Developer Mode" is enabled.
 
 ## Installation
