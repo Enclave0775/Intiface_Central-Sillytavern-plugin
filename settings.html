@@ -22,23 +22,38 @@
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
             <label class="checkbox_label">
                 <input type="checkbox" id="intiface-loop-pattern-checkbox">
-                循環執行指令 (Loop Message Patterns)
+                循環執行指令 (Loop Patterns)
             </label>
+            <span style="font-size: 0.8em; color: gray; margin-left: 5px;">(若暫停裝置則會自動取消勾選 / Auto-unchecks if device is paused)</span>
         </div>
-        <div id="intiface-loop-interval-container" class="flex-container alignitemscenter" style="margin-top: 5px; margin-left: 20px; display: none;">
-             <label for="intiface-loop-interval-input" style="margin-right: 10px;">循環間隔 (毫秒/ms):</label>
-             <input type="number" id="intiface-loop-interval-input" class="text_pole" min="0" value="1000" placeholder="1000" style="width: 80px;">
+        <div id="intiface-loop-options-container" class="flex-container alignitemscenter" style="margin-top: 5px; margin-left: 20px; display: none; flex-direction: column; align-items: flex-start;">
+             <div style="margin-bottom: 5px;">
+                 <label>
+                     <input type="radio" name="intiface-loop-mode" value="playlist" checked>
+                     播放清單循環 (Full Playlist)
+                 </label>
+             </div>
+             <div style="margin-bottom: 5px;">
+                 <label>
+                     <input type="radio" name="intiface-loop-mode" value="last_message">
+                     只循環最後一條 (Last Message Only)
+                 </label>
+             </div>
+             <div style="margin-top: 5px;">
+                 <label for="intiface-loop-interval-input" style="margin-right: 10px;">循環間隔 (Interval) (毫秒/ms):</label>
+                 <input type="number" id="intiface-loop-interval-input" class="text_pole" min="0" value="1000" placeholder="1000" style="width: 80px;">
+             </div>
         </div>
 
         <div class="flex-container alignitemscenter" style="margin-top: 10px;">
-             <label for="intiface-reading-speed-input" style="margin-right: 10px;">閱讀速度 (字/秒):</label>
+             <label for="intiface-reading-speed-input" style="margin-right: 10px;">閱讀速度 (Reading Speed) (字/秒):</label>
              <input type="number" id="intiface-reading-speed-input" class="text_pole" min="1" value="20" placeholder="20" style="width: 80px;">
         </div>
 
         <div class="flex-container alignitemscenter" style="margin-top: 5px;">
             <label class="checkbox_label">
                 <input type="checkbox" id="intiface-dev-mode-checkbox">
-                開發者模式 (顯示所有控制項)
+                開發者模式 (Developer Mode) (顯示所有控制項 / Show all controls)
             </label>
         </div>
         
@@ -50,18 +65,18 @@
         </div>
 
         <details style="margin-top: 10px; background-color: rgba(0, 0, 0, 0.1); border-radius: 5px; padding: 5px;">
-            <summary style="cursor: pointer; user-select: none; font-weight: bold; padding: 5px;">[設置]</summary>
+            <summary style="cursor: pointer; user-select: none; font-weight: bold; padding: 5px;">[設置 / Settings]</summary>
             
             <div style="padding: 10px;">
                  <!-- Colors -->
                  <div class="flex-container alignitemscenter" style="margin-bottom: 15px;">
                      <div style="flex: 1; display: flex; align-items: center;">
                          <div id="intiface-reading-color-picker-container"></div>
-                         <span style="margin-left: 10px;">閱讀高亮</span>
+                         <span style="margin-left: 10px;">閱讀高亮 (Reading Highlight)</span>
                      </div>
                      <div style="flex: 1; display: flex; align-items: center;">
                          <div id="intiface-command-color-picker-container"></div>
-                         <span style="margin-left: 10px;">指令高亮</span>
+                         <span style="margin-left: 10px;">指令高亮 (Command Highlight)</span>
                      </div>
                  </div>
 
@@ -81,7 +96,7 @@
                     <input type="number" id="intiface-max-oscillate-input" class="text_pole" min="0" max="100" value="100" placeholder="100" style="flex-grow: 1;">
                 </div>
                 <div class="flex-container alignitemscenter" style="margin-top: 10px;">
-                    <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (分鐘):</label>
+                    <label for="intiface-timer-input" style="margin-right: 10px;">安全計時器 (Safety Timer) (分鐘/min):</label>
                     <input type="number" id="intiface-timer-input" class="text_pole" min="0" placeholder="0" style="flex-grow: 1;">
                 </div>
             </div>

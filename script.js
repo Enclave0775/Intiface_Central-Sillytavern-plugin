@@ -29,13 +29,20 @@ let isProcessingQueue = false;
 let lastExecTime = 0;
 let lastCommandIndex = 0;
 
-// Variables for looping
+// Variables for playlist and looping
+let messagePlaylist = [];
+let currentPlaylistIndex = -1;
 let currentMessageMatches = [];
 let currentMessageElement = null;
+let isPatternsPaused = false;
+let pauseTime = 0;
 
 // Animation control
 let readingAnimationId = null;
 let readingAnimationResolver = null;
+let isAnimationPaused = false;
+let currentAnimationElapsed = 0;
+let lastAnimationTimestamp = 0;
 
 function getMaxVibrate(motorIndex) {
   const inputId = motorIndex === 0 ? "#intiface-max-vibrate-1-input" : "#intiface-max-vibrate-2-input"
@@ -138,6 +145,13 @@ function resetQueueState() {
     commandQueue = [];
     isProcessingQueue = false;
     currentMessageMatches = []; 
+    isPatternsPaused = false;
+    pauseTime = 0;
+    
+    messagePlaylist = [];
+    currentPlaylistIndex = -1;
+    
+    updatePlayPauseButtons(false);
     
     // Stop any running animations
     if (readingAnimationResolver) {
@@ -149,6 +163,65 @@ function resetQueueState() {
         readingAnimationId = null;
     }
     clearHighlights();
+}
+
+// Function to toggle pause/play for queues and loops
+function togglePauseQueueAndLoops() {
+    if (isPatternsPaused) {
+        // RESUME
+        isPatternsPaused = false;
+        isAnimationPaused = false;
+        lastAnimationTimestamp = performance.now(); // Reset timestamp for smooth resume
+
+        const timePaused = Date.now() - pauseTime;
+        lastExecTime += timePaused; // Adjust the last execution time so delay calculations ignore the pause duration
+        
+        updatePlayPauseButtons(false);
+        updateStatus("Resuming patterns...");
+        
+        // Kickstart the queue again (if it wasn't stuck waiting inside animateReading)
+        if (!isProcessingQueue) {
+             processQueue();
+        }
+    } else {
+        // PAUSE
+        isPatternsPaused = true;
+        isAnimationPaused = true;
+        pauseTime = Date.now();
+        updatePlayPauseButtons(true);
+        // Note: We intentionally do NOT clear commandQueue here so we can resume later!
+        
+        // We DO NOT cancel the animation frame here anymore! 
+        // We let it loop but freeze the progress internally.
+        
+        // Uncheck the loop checkbox visually and in logic
+        if ($('#intiface-loop-pattern-checkbox').is(':checked')) {
+            $('#intiface-loop-pattern-checkbox').prop('checked', false).trigger('change');
+        }
+    }
+}
+
+function restartPatterns() {
+    // This will clear everything and restart from the beginning
+    rescanLastMessage();
+}
+
+function updatePlayPauseButtons(isPaused) {
+    if (isPaused) {
+        $(".intiface-stop-vibrate-btn").hide();
+        $(".intiface-stop-oscillate-btn").hide();
+        $(".intiface-stop-stroker-btn").hide();
+        $(".intiface-start-stroker-btn").hide();
+        $(".intiface-resume-btn").show();
+        $(".intiface-restart-btn").show();
+    } else {
+        $(".intiface-stop-vibrate-btn").show();
+        $(".intiface-stop-oscillate-btn").show();
+        $(".intiface-stop-stroker-btn").show();
+        $(".intiface-start-stroker-btn").show();
+        $(".intiface-resume-btn").hide();
+        $(".intiface-restart-btn").hide();
+    }
 }
 
 async function disconnect() {
@@ -329,6 +402,45 @@ async function handleDeviceAdded(newDevice) {
       )
       vibrateContainer.append($("<div>").append(label).append(slider))
     })
+    
+    // Add Stop Vibrate / Resume / Restart Buttons
+    const buttonsContainer = $('<div style="display: flex; gap: 5px; margin-top: 5px;"></div>')
+    
+    const stopVibrateBtn = $(`<div class="menu_button intiface-stop-vibrate-btn" style="flex: 1; ${isPatternsPaused ? 'display: none;' : ''}">Stop Vibrate</div>`)
+    const resumeBtn = $(`<div class="menu_button intiface-resume-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Resume</div>`)
+    const restartBtn = $(`<div class="menu_button intiface-restart-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Restart</div>`)
+    
+    stopVibrateBtn.on("click", async () => {
+        togglePauseQueueAndLoops();
+        
+        // Stop any running automated patterns immediately
+        if (vibrateIntervalId) {
+            clearTimeout(vibrateIntervalId)
+            vibrateIntervalId = null
+            $("#intiface-interval-display").text("Interval: N/A")
+        }
+        
+        // Reset sliders visually
+        vibrateContainer.find(".vibrate-slider").val(0)
+        
+        // Send stop commands to all motors
+        try {
+            for (let i = 0; i < vibrateAttributes.length; i++) {
+                // @ts-ignore
+                const scalarCommand = new buttplug.ScalarSubcommand(vibrateAttributes[i].Index, 0, "Vibrate")
+                await device.scalar(scalarCommand)
+            }
+            updateStatus("Patterns paused. Vibration stopped.")
+        } catch (e) {
+            console.error("Failed to stop vibration manually:", e)
+        }
+    })
+    
+    resumeBtn.on("click", () => togglePauseQueueAndLoops())
+    restartBtn.on("click", () => restartPatterns())
+
+    buttonsContainer.append(stopVibrateBtn).append(resumeBtn).append(restartBtn)
+    vibrateContainer.append(buttonsContainer)
     deviceDiv.append(vibrateContainer)
 
     // Shared event handler for all vibrate sliders within this device
@@ -377,6 +489,7 @@ async function handleDeviceAdded(newDevice) {
 
   // Oscillate slider
   if (devMode || (device.oscillateAttributes && device.oscillateAttributes.length > 0)) {
+      const oscillateContainer = $('<div id="oscillate-controls"></div>')
       const oscillateSlider = $('<input type="range" min="0" max="100" value="0" id="oscillate-slider">')
       oscillateSlider.on("input", async () => {
         try {
@@ -387,11 +500,42 @@ async function handleDeviceAdded(newDevice) {
           // Don't worry about it, some devices don't support this.
         }
       })
-      deviceDiv.append("<span>Oscillate: </span>").append(oscillateSlider)
+      oscillateContainer.append("<span>Oscillate: </span>").append(oscillateSlider)
+      
+      const oscButtonsContainer = $('<div style="display: flex; gap: 5px; margin-top: 5px;"></div>')
+      const stopOscillateBtn = $(`<div class="menu_button intiface-stop-oscillate-btn" style="flex: 1; ${isPatternsPaused ? 'display: none;' : ''}">Stop Oscillate</div>`)
+      const resumeOscBtn = $(`<div class="menu_button intiface-resume-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Resume</div>`)
+      const restartOscBtn = $(`<div class="menu_button intiface-restart-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Restart</div>`)
+      
+      stopOscillateBtn.on("click", async () => {
+          togglePauseQueueAndLoops();
+
+          if (oscillateIntervalId) {
+              clearTimeout(oscillateIntervalId)
+              oscillateIntervalId = null
+              $("#intiface-oscillate-interval-display").text("Oscillate Interval: N/A")
+          }
+          
+          oscillateSlider.val(0)
+          try {
+              await device.oscillate(0)
+              updateStatus("Patterns paused. Oscillation stopped.")
+          } catch (e) {
+              console.error("Failed to stop oscillation manually:", e)
+          }
+      })
+      
+      resumeOscBtn.on("click", () => togglePauseQueueAndLoops())
+      restartOscBtn.on("click", () => restartPatterns())
+
+      oscButtonsContainer.append(stopOscillateBtn).append(resumeOscBtn).append(restartOscBtn)
+      oscillateContainer.append(oscButtonsContainer)
+
       const oscillateIntervalDisplay = $(
         '<div id="intiface-oscillate-interval-display" style="margin-top: 10px;">Oscillate Interval: N/A</div>',
       )
-      deviceDiv.append(oscillateIntervalDisplay)
+      oscillateContainer.append(oscillateIntervalDisplay)
+      deviceDiv.append(oscillateContainer)
   }
 
   // Linear Controls
@@ -400,13 +544,19 @@ async function handleDeviceAdded(newDevice) {
       const startPosSlider = $('<input type="range" min="0" max="100" value="10" id="start-pos-slider">')
       const endPosSlider = $('<input type="range" min="0" max="100" value="90" id="end-pos-slider">')
       const durationInput = $('<input type="number" id="duration-input" class="text_pole" value="1000" style="width: 100%;">')
-      const startStrokerBtn = $('<div class="menu_button">Start Stroking</div>')
-      const stopStrokerBtn = $('<div class="menu_button">Stop Stroking</div>')
+      
+      const linButtonsContainer = $('<div style="display: flex; gap: 5px; margin-top: 5px;"></div>')
+      const startStrokerBtn = $(`<div class="menu_button intiface-start-stroker-btn" style="flex: 1; ${isPatternsPaused ? 'display: none;' : ''}">Start Stroking</div>`)
+      const stopStrokerBtn = $(`<div class="menu_button intiface-stop-stroker-btn" style="flex: 1; ${isPatternsPaused ? 'display: none;' : ''}">Stop Stroking</div>`)
+      const resumeLinBtn = $(`<div class="menu_button intiface-resume-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Resume</div>`)
+      const restartLinBtn = $(`<div class="menu_button intiface-restart-btn" style="flex: 1; ${isPatternsPaused ? '' : 'display: none;'}">Restart</div>`)
 
       deviceDiv.append("<div><span>Start Pos: </span></div>").append(startPosSlider)
       deviceDiv.append("<div><span>End Pos: </span></div>").append(endPosSlider)
       deviceDiv.append("<div><span>Duration (ms): </span></div>").append(durationInput)
-      deviceDiv.append(startStrokerBtn).append(stopStrokerBtn)
+      
+      linButtonsContainer.append(startStrokerBtn).append(stopStrokerBtn).append(resumeLinBtn).append(restartLinBtn)
+      deviceDiv.append(linButtonsContainer)
 
       let isAtStart = true
 
@@ -427,11 +577,15 @@ async function handleDeviceAdded(newDevice) {
       })
 
       stopStrokerBtn.on("click", () => {
+        togglePauseQueueAndLoops();
         if (strokerIntervalId) {
           clearInterval(strokerIntervalId)
           strokerIntervalId = null
         }
       })
+      
+      resumeLinBtn.on("click", () => togglePauseQueueAndLoops())
+      restartLinBtn.on("click", () => restartPatterns())
   }
 
   devicesEl.append(deviceDiv)
@@ -455,17 +609,121 @@ async function rescanLastMessage() {
 
     const chat = document.querySelector('#chat');
     if (chat) {
-        const messages = chat.querySelectorAll('.mes');
+        const messages = Array.from(chat.querySelectorAll('.mes'));
         if (messages.length > 0) {
             const lastMessageDiv = messages[messages.length - 1];
-            const textDiv = lastMessageDiv.querySelector('.mes_text');
-            if (textDiv) {
-                // Use textContent to ensure indices match DOM TextNodes for highlighting
-                const text = textDiv.textContent; 
-                processText(text, textDiv); // Note: Passing element for highlight
-            }
+            messagePlaylist = [lastMessageDiv];
+            currentPlaylistIndex = 0;
+            processCurrentPlaylistMessage();
         }
     }
+}
+
+function startPlaylistFromElement(element) {
+    resetQueueState();
+    
+    const chatContainer = document.querySelector('#chat');
+    const allMessages = Array.from(chatContainer.querySelectorAll('.mes'));
+    const startIndex = allMessages.indexOf(element);
+    
+    if (startIndex !== -1) {
+        messagePlaylist = allMessages.slice(startIndex);
+        currentPlaylistIndex = 0;
+        processCurrentPlaylistMessage();
+    }
+}
+
+function processCurrentPlaylistMessage() {
+    if (currentPlaylistIndex === -1) return; // aborted
+    
+    if (currentPlaylistIndex >= messagePlaylist.length) {
+        // End of playlist
+        if ($('#intiface-loop-pattern-checkbox').is(':checked') && client && client.connected && !isPatternsPaused) {
+            const loopMode = $('input[name="intiface-loop-mode"]:checked').val();
+            
+            if (loopMode === 'playlist') {
+                updateStatus("Looping playlist...");
+                const loopInterval = parseInt($("#intiface-loop-interval-input").val()) || 1000;
+                setTimeout(() => {
+                    if ($('#intiface-loop-pattern-checkbox').is(':checked') && !isPatternsPaused) {
+                        // Reset executed commands so we can run the matches again
+                        executedCommands.clear(); 
+                        currentPlaylistIndex = 0;
+                        processCurrentPlaylistMessage();
+                    }
+                }, loopInterval);
+            } else {
+                // If it's last_message but we somehow reached the end (e.g. they clicked play on the last msg)
+                // Let's just replay the last message
+                updateStatus("Looping last message...");
+                const loopInterval = parseInt($("#intiface-loop-interval-input").val()) || 1000;
+                setTimeout(() => {
+                    if ($('#intiface-loop-pattern-checkbox').is(':checked') && !isPatternsPaused) {
+                        executedCommands.clear(); 
+                        currentPlaylistIndex = messagePlaylist.length - 1; // Replay the very last one
+                        processCurrentPlaylistMessage();
+                    }
+                }, loopInterval);
+            }
+        } else {
+            updateStatus("Playlist finished.");
+        }
+        return;
+    }
+    
+    const messageElement = messagePlaylist[currentPlaylistIndex];
+    const textDiv = messageElement.querySelector('.mes_text');
+    
+    if (textDiv) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        lastExecTime = Date.now();
+        lastCommandIndex = 0;
+        
+        const nameDiv = messageElement.querySelector('.ch_name');
+        const name = nameDiv ? nameDiv.textContent.trim() : "System";
+        updateStatus(`Playing message ${currentPlaylistIndex + 1}/${messagePlaylist.length} (${name})`);
+        
+        processText(textDiv.textContent, textDiv);
+    } else {
+        // Skip empty/invalid messages
+        moveToNextInPlaylist();
+    }
+}
+
+async function moveToNextInPlaylist() {
+    // Gap between messages
+    await new Promise(r => setTimeout(r, 500));
+    
+    // Wait while paused
+    while (isPatternsPaused) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    
+    // Safety check: if resetQueueState was called, currentPlaylistIndex is -1
+    if (currentPlaylistIndex === -1) return;
+
+    // Check if we should loop the LAST message only
+    if ($('#intiface-loop-pattern-checkbox').is(':checked') && client && client.connected && !isPatternsPaused) {
+        const loopMode = $('input[name="intiface-loop-mode"]:checked').val();
+        
+        // If we are on the very last message in the playlist, and mode is 'last_message'
+        if (loopMode === 'last_message' && currentPlaylistIndex === messagePlaylist.length - 1) {
+            updateStatus("Looping last message...");
+            const loopInterval = parseInt($("#intiface-loop-interval-input").val()) || 1000;
+            
+            setTimeout(() => {
+                if ($('#intiface-loop-pattern-checkbox').is(':checked') && !isPatternsPaused) {
+                    executedCommands.clear(); 
+                    // Do NOT increment currentPlaylistIndex, just replay it
+                    processCurrentPlaylistMessage();
+                }
+            }, loopInterval);
+            return;
+        }
+    }
+
+    currentPlaylistIndex++;
+    processCurrentPlaylistMessage();
 }
 
 // -------------------------------------------------------------------------
@@ -561,15 +819,28 @@ function highlightCommand(element, startIndex, length) {
 
 function animateReading(element, start, end, duration) {
     // Only support Highlight API for reading animation
-    if (!window.CSS || !CSS.highlights) return Promise.resolve();
+    if (!window.CSS || !CSS.highlights) {
+        // Fallback: Just wait out the time without animation, respecting pause
+        return new Promise(resolve => {
+            const checkInterval = setInterval(() => {
+                if (isPatternsPaused) return; // Wait
+                clearInterval(checkInterval);
+                resolve();
+            }, 50);
+            setTimeout(() => clearInterval(checkInterval) || resolve(), duration);
+        });
+    }
+    
     if (duration < 50) return Promise.resolve();
 
     return new Promise(resolve => {
-        // If there was an old resolver, call it to unblock previous await (though race condition unlikely in single queue)
+        // If there was an old resolver, call it to unblock previous await
         if (readingAnimationResolver) readingAnimationResolver();
         
         readingAnimationResolver = resolve;
-        const startTime = performance.now();
+        currentAnimationElapsed = 0;
+        lastAnimationTimestamp = performance.now();
+        isAnimationPaused = isPatternsPaused; // Inherit global pause state
         
         // Ensure previous reading highlight is cleared
         CSS.highlights.delete('intiface-reading');
@@ -577,17 +848,25 @@ function animateReading(element, start, end, duration) {
         if (readingAnimationId) cancelAnimationFrame(readingAnimationId);
 
         function step(now) {
-            const elapsed = now - startTime;
-            if (elapsed > duration) {
+            if (!isAnimationPaused) {
+                // Accumulate elapsed time only when not paused
+                const delta = now - lastAnimationTimestamp;
+                currentAnimationElapsed += delta;
+            }
+            lastAnimationTimestamp = now;
+
+            if (currentAnimationElapsed >= duration) {
+                // Done
                 // @ts-ignore
                 CSS.highlights.delete('intiface-reading');
                 readingAnimationId = null;
                 readingAnimationResolver = null;
+                currentAnimationElapsed = 0;
                 resolve();
                 return;
             }
             
-            const progress = elapsed / duration;
+            const progress = currentAnimationElapsed / duration;
             const currentPos = Math.floor(start + (end - start) * progress);
             
             // Don't highlight if range is empty
@@ -601,6 +880,7 @@ function animateReading(element, start, end, duration) {
                 }
             }
             
+            // Keep looping until elapsed >= duration
             readingAnimationId = requestAnimationFrame(step);
         }
         
@@ -696,6 +976,13 @@ function processText(text, element) {
     currentMessageMatches = allMatches;
     currentMessageElement = element;
 
+    if (allMatches.length === 0) {
+        if (!isPatternsPaused) {
+            processQueue(); // Process trailing text and advance to next message
+        }
+        return;
+    }
+
     // 4. Add new matches to Queue
     for (const match of allMatches) {
         const uniqueKey = `${match.index}-${match.text}`;
@@ -703,21 +990,22 @@ function processText(text, element) {
         if (!executedCommands.has(uniqueKey)) {
             console.log(`Intiface: Queuing command at index ${match.index}: ${match.type}`);
             executedCommands.add(uniqueKey);
-            addToQueue(match, element);
+            
+            if (isPatternsPaused) continue;
+            commandQueue.push({ ...match, element });
         }
+    }
+    
+    if (!isPatternsPaused) {
+        processQueue();
     }
 }
 
-function addToQueue(match, element) {
-    commandQueue.push({ ...match, element });
-    processQueue();
-}
-
 async function processQueue() {
-    if (isProcessingQueue) return;
+    if (isProcessingQueue || isPatternsPaused) return;
     isProcessingQueue = true;
 
-    while (commandQueue.length > 0) {
+    while (commandQueue.length > 0 && !isPatternsPaused) {
         const cmd = commandQueue[0];
         
         // --- DELAY LOGIC ---
@@ -739,6 +1027,15 @@ async function processQueue() {
             await animateReading(currentMessageElement, lastCommandIndex, cmd.index, waitTime);
         }
         
+        // Note: The pause logic is now perfectly handled inside animateReading.
+        // It will freeze and await until resumed. Once resolved, it means we reached the target index.
+
+        // Check if a Restart triggered a full clear while we were awaiting
+        if (commandQueue.length === 0 || commandQueue[0] !== cmd) {
+             isProcessingQueue = false;
+             return;
+        }
+
         // --- EXECUTION ---
         commandQueue.shift(); // Remove from queue
         
@@ -775,7 +1072,6 @@ async function processQueue() {
                      const waitTime = calculatedDelay - timeSinceLastExec;
                      if (waitTime < 5000) {
                         await animateReading(currentMessageElement, lastCommandIndex, totalLength, waitTime);
-                        await new Promise(r => setTimeout(r, waitTime));
                      }
                  }
                  
@@ -785,41 +1081,15 @@ async function processQueue() {
         }
     }
     
-    // --- LOOP LOGIC ---
-    // Check if queue is empty and looping is enabled
-    // Only loop if connected and there are matches
-    if (commandQueue.length === 0 && currentMessageMatches.length > 0) {
-        if ($('#intiface-loop-pattern-checkbox').is(':checked') && client && client.connected) {
-            
-            // Loop Delay
-            const loopInterval = parseInt($("#intiface-loop-interval-input").val()) || 1000;
-            await new Promise(r => setTimeout(r, loopInterval));
-            
-            // Check again after delay
-            if ($('#intiface-loop-pattern-checkbox').is(':checked') && 
-                client && client.connected && 
-                commandQueue.length === 0) {
-                
-                console.log("Intiface: Looping message patterns...");
-                // Reset indices for loop
-                lastCommandIndex = 0; 
-                // Reset lastExecTime to NOW so the first command delay is calculated correctly relative to start of message
-                lastExecTime = Date.now(); 
-                
-                for (const match of currentMessageMatches) {
-                    // We directly push to queue, bypassing executedCommands check
-                    commandQueue.push({ ...match, element: currentMessageElement });
-                }
-                
-                // Trigger queue processing again (recursively, but async)
-                isProcessingQueue = false; // Allow re-entry
-                processQueue();
-                return; // Exit this instance
-            }
-        }
+    if (isPatternsPaused) {
+        isProcessingQueue = false;
+        return;
     }
     
     isProcessingQueue = false;
+
+    // If we've finished reading the message, move to the next in the playlist.
+    moveToNextInPlaylist();
 }
 
 
@@ -1253,31 +1523,53 @@ function initObserver() {
 
     if (chatObserver) chatObserver.disconnect();
 
+    const injectPlayButtons = () => {
+        const messages = chatContainer.querySelectorAll('.mes');
+        messages.forEach(mes => {
+            const buttonsContainer = mes.querySelector('.mes_buttons');
+            if (buttonsContainer && !buttonsContainer.querySelector('.intiface-play-msg-btn')) {
+                const playBtn = document.createElement('div');
+                playBtn.className = 'mes_button intiface-play-msg-btn';
+                playBtn.title = 'Play Intiface from here';
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                playBtn.style.cursor = 'pointer';
+                playBtn.style.opacity = '0.5';
+                
+                playBtn.addEventListener('mouseenter', () => playBtn.style.opacity = '1');
+                playBtn.addEventListener('mouseleave', () => playBtn.style.opacity = '0.5');
+                
+                playBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    startPlaylistFromElement(mes);
+                });
+                
+                // Add to the beginning of the buttons
+                buttonsContainer.insertBefore(playBtn, buttonsContainer.firstChild);
+            }
+        });
+    };
+
     chatObserver = new MutationObserver((mutations) => {
-        // Efficiently find the last message
         const messages = chatContainer.querySelectorAll('.mes');
         if (messages.length === 0) return;
         
-        const lastMessageDiv = messages[messages.length - 1];
+        injectPlayButtons();
         
-        // Generate a unique ID for the current message state to track if we switched messages
-        // SillyTavern usually has 'data-ch-name' or similar, but index is good enough for "latest"
+        const lastMessageDiv = messages[messages.length - 1];
+        const textDiv = lastMessageDiv.querySelector('.mes_text');
+        
+        // Use text content length to track edits/swipes in the last message
+        const textLength = textDiv ? textDiv.textContent.length : 0;
         const msgIndex = messages.length - 1;
-        // Use a composite ID of index + timestamp if available to detect edits vs new msgs
-        // But for now, index is fine. Streaming usually happens on the last index.
-        const currentMsgId = `msg-${msgIndex}`;
+        const currentMsgId = `msg-${msgIndex}-${textLength}`;
 
         if (currentMsgId !== lastMessageId) {
-            // New message started
             lastMessageId = currentMsgId;
             resetQueueState();
-        }
-
-        const textDiv = lastMessageDiv.querySelector('.mes_text');
-        if (textDiv) {
-            // Use textContent to ensure indices match DOM TextNodes for highlighting
-            const text = textDiv.textContent;
-            processText(text, textDiv);
+            
+            messagePlaylist = [lastMessageDiv];
+            currentPlaylistIndex = 0;
+            processCurrentPlaylistMessage();
         }
     });
 
@@ -1288,6 +1580,9 @@ function initObserver() {
     });
     
     console.log("Intiface Plugin: Chat observer initialized.");
+    
+    // Initial injection for existing messages on load
+    injectPlayButtons();
 }
 
 $(async () => {
@@ -1359,12 +1654,20 @@ $(async () => {
     $("#intiface-loop-pattern-checkbox").prop("checked", savedLoopSetting);
     
     // Initial visibility
-    $("#intiface-loop-interval-container").toggle(savedLoopSetting);
+    $("#intiface-loop-options-container").toggle(savedLoopSetting);
 
     $("#intiface-loop-pattern-checkbox").on("change", function() {
         const isChecked = $(this).is(":checked");
         localStorage.setItem("intiface-loop-pattern", isChecked);
-        $("#intiface-loop-interval-container").toggle(isChecked);
+        $("#intiface-loop-options-container").toggle(isChecked);
+    });
+
+    // Loop Mode setting
+    const savedLoopMode = localStorage.getItem("intiface-loop-mode") || "playlist";
+    $(`input[name="intiface-loop-mode"][value="${savedLoopMode}"]`).prop("checked", true);
+    
+    $('input[name="intiface-loop-mode"]').on("change", function() {
+        localStorage.setItem("intiface-loop-mode", $(this).val());
     });
 
     // Loop Interval setting
