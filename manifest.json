@@ -1,5 +1,6 @@
 {
     "display_name": "Intiface Central For Sillytavern",
+    "description": "Connects SillyTavern to Intiface Central via Buttplug.io, triggering device vibrations from chat commands or AI responses.",
     "js": "script.js",
     "css": "style.css",
     "author": "Enclave0775",
